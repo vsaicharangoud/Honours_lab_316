@@ -1,0 +1,105 @@
+Magic 271485
+Revision Verdi_U-2023.03-SP1
+
+; Window Layout <x> <y> <width> <height> <signalwidth> <valuewidth>
+viewPort 0 25 1600 733 197 276
+
+; File list:
+; openDirFile [-d delimiter] [-s time_offset] [-rf auto_bus_rule_file] path_name file_name
+openDirFile -d / "" "/home/student/Documents/316/IPs/aes_core-master/bench/verilog/aes_axi_system.fsdb"
+
+; file time scale:
+; fileTimeScale ### s|ms|us|ns|ps
+
+; signal spacing:
+signalSpacing 5
+
+; windowTimeUnit is used for zoom, cursor & marker
+; waveform viewport range
+zoom 323516.385542 2036160.000000
+cursor 1966000.000000
+marker 0.000000
+
+; user define markers
+; userMarker time_pos marker_name color linestyle
+; visible top row signal index
+top 5
+; marker line index
+markerPos 33
+
+; event list
+; addEvent event_name event_expression
+; curEvent event_name
+
+
+
+COMPLEX_EVENT_BEGIN
+
+
+COMPLEX_EVENT_END
+
+
+
+; toolbar current search type
+; curSTATUS search_type
+curSTATUS ByChange
+
+
+addGroup "G1"
+activeDirFile "" "/home/student/Documents/316/IPs/aes_core-master/bench/verilog/aes_axi_system.fsdb"
+addSignal -h 15 -UNSIGNED -HEX /tb_axi_aes_system/u_axi_master/m_axi_araddr[31:0]
+addSignal -h 15 -holdScope m_axi_arready
+addSignal -h 15 -holdScope m_axi_arvalid
+addSignal -h 15 -UNSIGNED -HEX -holdScope m_axi_awaddr[31:0]
+addSignal -h 15 -holdScope m_axi_awready
+addSignal -h 15 -holdScope m_axi_awvalid
+addSignal -h 15 -holdScope m_axi_bready
+addSignal -h 15 -holdScope m_axi_bvalid
+addSignal -h 15 -UNSIGNED -HEX -holdScope m_axi_rdata[31:0]
+addSignal -h 15 -holdScope m_axi_rready
+addSignal -h 15 -holdScope m_axi_rvalid
+addSignal -h 15 -UNSIGNED -HEX -holdScope m_axi_wdata[31:0]
+addSignal -h 15 -holdScope m_axi_wready
+addSignal -h 15 -holdScope m_axi_wvalid
+addGroup "G2"
+addSignal -h 15 -UNSIGNED -HEX /tb_axi_aes_system/u_aes_register_set/reg_rd_addr[31:0]
+addSignal -h 15 -holdScope reg_rd_en
+addSignal -h 15 -UNSIGNED -HEX -holdScope reg_wr_addr[31:0]
+addSignal -h 15 -UNSIGNED -HEX -holdScope reg_wr_data[31:0]
+addSignal -h 15 -holdScope reg_wr_en
+addGroup "G3"
+addSignal -h 15 /tb_axi_aes_system/u_aes_register_set/aes_done
+addSignal -h 15 -holdScope aes_ld
+addSignal -h 15 -UNSIGNED -HEX -holdScope key_reg[127:0]
+addSignal -h 15 -UNSIGNED -HEX -holdScope text_in_reg[127:0]
+addSignal -h 15 -UNSIGNED -HEX -holdScope text_out_reg[127:0]
+addGroup "G4"
+addSignal -h 15 /tb_axi_aes_system/u_aes_inv_cipher/done
+addSignal -h 15 -UNSIGNED -HEX -holdScope key[127:0]
+addSignal -h 15 -holdScope kld
+addSignal -h 15 -holdScope ld
+addSignal -h 15 -UNSIGNED -HEX -holdScope text_in[127:0]
+addSignal -h 15 -UNSIGNED -HEX -holdScope text_out[127:0]
+addGroup "G5"
+
+; getSignalForm Scope Hierarchy Status
+; active file of getSignalForm
+activeDirFile "" "/home/student/Documents/316/IPs/aes_core-master/bench/verilog/aes_axi_system.fsdb"
+
+GETSIGNALFORM_SCOPE_HIERARCHY_BEGIN
+getSignalForm close
+
+"/tb_axi_aes_system"
+
+SCOPE_LIST_BEGIN
+"/tb_axi_aes_system"
+"/tb_axi_aes_system/u_axi_master"
+"/tb_axi_aes_system/u_aes_register_set"
+"/tb_axi_aes_system/u_axi_aes_slave"
+"/tb_axi_aes_system/u_aes_cipher"
+"/tb_axi_aes_system/u_aes_inv_cipher"
+SCOPE_LIST_END
+
+GETSIGNALFORM_SCOPE_HIERARCHY_END
+
+
