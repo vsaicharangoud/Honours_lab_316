@@ -1,0 +1,123 @@
+name: VeeR-EL2 verification
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    name: Verification tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      matrix:
+        bus: ["ahb", "axi"]
+        test: ["test_pyuvm"]
+        coverage: ["all"]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      CCACHE_DIR: "/opt/regression/.cache/"
+      FULL_NAME: "${{ matrix.bus }}-verification-${{ matrix.test }}"
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install -r .github/scripts/requirements-coverage.txt
+
+      - name: Setup environment
+        run: |
+          RV_ROOT=`pwd`
+          echo "RV_ROOT=$RV_ROOT" >> $GITHUB_ENV
+          PYTHONUNBUFFERED=1
+          echo "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" >> $GITHUB_ENV
+          TEST_PATH=$RV_ROOT/verification/top/${{ matrix.test }}
+          echo "TEST_PATH=$TEST_PATH" >> $GITHUB_ENV
+          echo "HTML_FILE=${FULL_NAME}_${{ matrix.coverage }}.html" >> $GITHUB_ENV
+
+
+      - name: Run ${{ matrix.test }}
+        run: |
+          source .venv/bin/activate
+          pip3 install meson
+          pip3 install -r $RV_ROOT/verification/top/requirements.txt
+          PYTEST_STYLE_SRC_DIR=$RV_ROOT/.github/scripts/pytest/
+          PYTEST_CSS=${PYTEST_STYLE_SRC_DIR}/css/styles.css
+          if [ ${{ matrix.bus }} = axi ]; then
+              CONF_PARAMS='-set build_axi4'
+          else
+              CONF_PARAMS='-set build_ahb_lite'
+          fi
+          pushd ${TEST_PATH}
+            python3 -m pytest ${{ matrix.test }}.py -sv --coverage=${{ matrix.coverage }} --html=$HTML_FILE --md=$GITHUB_STEP_SUMMARY --css=$PYTEST_CSS --conf_params="$CONF_PARAMS"
+            bash ${PYTEST_STYLE_SRC_DIR}/style_pytest_report.sh ${PYTEST_STYLE_SRC_DIR} ${TEST_PATH} ${HTML_FILE}
+          popd
+
+      - name: Prepare pytest-html data
+        run: |
+          source .venv/bin/activate
+          pushd $RV_ROOT
+            WEBPAGE_DIR=webpage_${FULL_NAME}_${{ matrix.coverage }}
+            mkdir -p $WEBPAGE_DIR
+            mv ${TEST_PATH}/$HTML_FILE $WEBPAGE_DIR
+            mv ${TEST_PATH}/assets $WEBPAGE_DIR
+            JS_SCRIPT_DIR=$RV_ROOT/.github/scripts/pytest/script
+            mv $JS_SCRIPT_DIR $WEBPAGE_DIR
+          popd
+
+      - name: Prepare coverage data
+        run: |
+          source .venv/bin/activate
+          mkdir -p results
+          .github/scripts/convert_dat.sh ${TEST_PATH}/coverage.dat \
+             results/coverage_${FULL_NAME/test_/}
+
+      - name: Upload pytest-html artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification_dashboard_${{ env.FULL_NAME }}_${{ matrix.coverage }}
+          path: webpage_*
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification_tests_coverage_data_${{ env.FULL_NAME }}_${{ matrix.coverage }}
+          path: results/*.info
+
+  custom-verification-tests:
+    name: Custom verification tests
+    if: inputs.run_custom
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    strategy:
+      matrix:
+        bus: ["axi", "ahb"]
+        test: ["test_pyuvm"]
+    env:
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run tests
+        run: _secret_custom_verification_tests:11
+        env:
+          TEST: ${{ matrix.test }}
+          BUS: ${{ matrix.bus }}

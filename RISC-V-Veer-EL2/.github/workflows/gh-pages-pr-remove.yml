@@ -1,0 +1,67 @@
+name: GH-Pages PR Remove Deploy
+
+on:
+  workflow_run:
+    workflows: ["GH-Pages PR Remove"]
+    types:
+      - completed
+
+env:
+  ROOT_DIR: './public.new'
+
+jobs:
+  remove:
+    name: PR Remove Deploy
+    if: github.event.workflow_run.head_repository.owner.login == 'chipsalliance'
+    concurrency:
+      group: gh-pages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+
+      - name: Install coverage dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r .github/scripts/requirements-coverage.txt
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - name: Download deployment
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: ${{ env.ROOT_DIR }}
+
+      - name: Download artifact
+        id: download-artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: delete_pr_number
+          path: ./
+          run_id: ${{ github.event.workflow_run.id }}
+
+      - name: Extract PR number
+        id: PR
+        run: |
+          cat delete_pr_number.txt | tee "$GITHUB_OUTPUT"
+          rm -rf delete_pr_number.txt
+
+      - name: Update the webpage
+        run: |
+          rm -rf ${{ env.ROOT_DIR }}/html/dev/${{ steps.PR.outputs.number }}
+          rm -rf ${{ env.ROOT_DIR }}/doctrees/dev/${{ steps.PR.outputs.number }}
+
+      - name: Add redirect index page
+        run: |
+          cp .github/scripts/indexgen/index_redirect/index.html ./public.new/
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public.new
+          commit_message: "Remove reports from PR#${{ steps.PR.outputs.number }}"
+          force_orphan: true

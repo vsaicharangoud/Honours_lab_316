@@ -1,0 +1,216 @@
+name: VeeR-EL2 Microarchitectural tests
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: Lint microarchitectural tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup environment
+        run: |
+          RV_ROOT=`pwd`
+          echo "RV_ROOT=$RV_ROOT" >> $GITHUB_ENV
+          PYTHONUNBUFFERED=1
+          echo "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" >> $GITHUB_ENV
+
+          TEST_PATH=$RV_ROOT/verification/block
+          echo "TEST_PATH=$TEST_PATH" >> $GITHUB_ENV
+
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python3 -m pip install nox
+      - name: Lint
+        run: |
+          source .venv/bin/activate
+          pushd ${TEST_PATH}
+            nox -s test_lint
+          popd
+  tests:
+    name: Microarchitectural tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      matrix:
+        include:
+          - test: "block/pic"
+            artifact: "block_pic"
+          - test: "block/pic_gw"
+            artifact: "block_pic_gw"
+          - test: "block/dma"
+            artifact: "block_dma"
+          - test: "block/ifu_compress"
+            artifact: "block_ifu_compress"
+          - test: "block/ifu_mem_ctl"
+            artifact: "block_ifu_mem_ctl"
+          - test: "block/dec_tl"
+            artifact: "block_dec_tl"
+          - test: "block/dec_ib"
+            artifact: "block_dec_ib"
+          - test: "block/exu_alu"
+            artifact: "block_exu_alu"
+          - test: "block/exu_mul"
+            artifact: "block_exu_mul"
+          - test: "block/exu_div"
+            artifact: "block_exu_div"
+          - test: "block/iccm"
+            artifact: "block_iccm"
+          - test: "block/dccm"
+            artifact: "block_dccm"
+          - test: "block/lib_axi4_to_ahb"
+            artifact: "block_lib_axi4_to_ahb"
+          - test: "block/lib_ahb_to_axi4"
+            artifact: "block_lib_ahb_to_axi4"
+          - test: "block/pmp"
+            artifact: "block_pmp"
+          - test: "block/pmp_random"
+            artifact: "block_pmp_random"
+          - test: "block/dec_pmp_ctl"
+            artifact: "block_dec_pmp_ctl"
+          - test: "block/dmi"
+            artifact: "block_dmi"
+          - test: "block/lsu_tl"
+            artifact: "block_lsu_tl"
+          - test: "block/dec_tlu_ctl"
+            artifact: "block_dec_tlu_ctl"
+          - test: "block/dec"
+            artifact: "block_dec"
+          - test: "block/dcls"
+            artifact: "block_dcls"
+    env:
+      CCACHE_DIR: "/opt/verification/.cache/"
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt -qqy update && sudo apt -qqy install zip
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install -r .github/scripts/requirements-coverage.txt
+
+      - name: Setup environment
+        run: |
+          RV_ROOT=`pwd`
+          echo "RV_ROOT=$RV_ROOT" >> $GITHUB_ENV
+          PYTHONUNBUFFERED=1
+          echo "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" >> $GITHUB_ENV
+
+          TEST_TYPE=`echo ${{ matrix.test }} | cut -d'/' -f1`
+          TEST_NAME=`echo ${{ matrix.test }} | cut -d'/' -f2`
+          TEST_PATH=$RV_ROOT/verification/${TEST_TYPE}
+
+          echo "TEST_TYPE=$TEST_TYPE" >> $GITHUB_ENV
+          echo "TEST_NAME=$TEST_NAME" >> $GITHUB_ENV
+          echo "TEST_PATH=$TEST_PATH" >> $GITHUB_ENV
+
+          # Fix random generator seed
+          echo "RANDOM_SEED=1377424946" >> $GITHUB_ENV
+
+      - name: Run ${{ matrix.test }}
+        run: |
+          source .venv/bin/activate
+          pushd ${TEST_PATH}
+            nox -s ${TEST_NAME}_verify
+          popd
+          zip verification/${{ matrix.test }}/dump.vcd.zip verification/${{ matrix.test }}/dump.vcd
+
+      - name: Prepare coverage data
+        run: |
+          shopt -s extglob
+          source .venv/bin/activate
+
+          mkdir -p results
+          for FILE in ${TEST_PATH}/${TEST_NAME}/*.dat; do
+            .github/scripts/convert_dat.sh "${FILE}" "results/$(basename "${FILE%_@(all|branch|toggle).dat}")"
+          done
+
+          # Prefix coverage results
+          pushd results
+            for OLD_NAME in *.info; do
+              # e.g. coverage_uarch-dma-ecc_line.info instead of coverage_test_ecc_line.info
+              NEW_NAME=${OLD_NAME/coverage_/coverage_uarch-${TEST_NAME}-}
+              NEW_NAME=${NEW_NAME/test_/}
+              echo "renaming '${OLD_NAME}' to '${NEW_NAME}'"
+              mv ${OLD_NAME} ${NEW_NAME}
+            done
+          popd
+
+      - name: Upload coverage data artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uarch_tests_coverage_data-${{ matrix.artifact }}
+          path: ./results/*.info
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uarch_tests_logs-${{ matrix.artifact }}
+          path: |
+            verification/${{ matrix.test }}/*.log
+            verification/${{ matrix.test }}/*.vcd.zip
+
+  custom_tests:
+    name: Run custom Microarchitectural tests
+    if: inputs.run_custom
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    strategy:
+      matrix:
+        test:
+          - "block/pic"
+          - "block/pic_gw"
+          - "block/dma"
+          - "block/ifu_compress"
+          - "block/ifu_mem_ctl"
+          - "block/dec_tl"
+          - "block/dec_ib"
+          - "block/exu_alu"
+          - "block/exu_mul"
+          - "block/exu_div"
+          - "block/iccm"
+          - "block/dccm"
+          - "block/lib_axi4_to_ahb"
+          - "block/lib_ahb_to_axi4"
+          - "block/pmp"
+          - "block/pmp_random"
+          - "block/dec_pmp_ctl"
+          - "block/dmi"
+          - "block/lsu_tl"
+          - "block/dec_tlu_ctl"
+          - "block/dec"
+    env:
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+      TEST: ${{ matrix.test }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Perform custom tests
+        run: _secret_custom_uarch:23
+        env:
+          TEST: ${{ matrix.test }}

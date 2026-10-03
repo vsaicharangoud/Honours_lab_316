@@ -1,0 +1,40 @@
+name: VeeR-EL2 verification
+
+on:
+  workflow_call:
+
+jobs:
+  tests:
+    name: UVM tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    env:
+      CCACHE_DIR: "/opt/uvm/.cache/"
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup environment
+        run: |
+          RV_ROOT=`pwd`
+          echo "RV_ROOT=$RV_ROOT" >> $GITHUB_ENV
+          PYTHONUNBUFFERED=1
+          echo "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" >> $GITHUB_ENV
+
+      - name: Build UVM testbench
+        run: |
+          make -C testbench/uvm/mem build -j$(nproc)
+
+      - name: Run UVM testbench
+        run: |
+          make -C testbench/uvm/mem simulate | tee test.out
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uvm_test_output
+          path: test.out

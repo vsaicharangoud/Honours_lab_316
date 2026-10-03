@@ -1,0 +1,113 @@
+name: Regression exceptions tests
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  generate-matrix:
+    name: Generate test matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      tests: ${{ steps.select.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select tests
+        id: select
+        run: |
+          echo "tests=$(python3 .github/scripts/select_pr_tests.py \
+            '${{ github.event_name }}' '${{ github.event.pull_request.head.sha || github.sha }}' 4 \
+            'machine_external_ints,dbus_store_error,lsu_trigger_hit,machine_external_vec_ints,dside_pic_access_error,iside_fetch_precise_bus_error,dside_access_region_prediction_error,cmark,iside_core_local_unmapped_address_error,dside_access_across_region_boundary,nmi_pin_assertion,dside_size_misaligned_access_to_non_idempotent_address,dside_core_local_access_unmapped_address_error,dbus_nonblocking_load_error,internal_timer_ints,ebreak_ecall,illegal_instruction,clk_override,core_pause')" | tee -a $GITHUB_OUTPUT
+
+  regression-tests:
+    name: Regression exceptions tests
+    needs: [generate-matrix]
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      matrix:
+        bus: ["axi"]
+        test: ${{ fromJSON(needs.generate-matrix.outputs.tests) }}
+        coverage: ["all"]
+        cache_waypack: ["0", "1"]
+        priv: ["0"]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      CCACHE_DIR: "/opt/regression/.cache/"
+
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install -r .github/scripts/requirements-coverage.txt
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - name: Setup environment
+        run: |
+          RV_ROOT=`pwd`
+          echo "RV_ROOT=$RV_ROOT" >> $GITHUB_ENV
+          PYTHONUNBUFFERED=1
+          echo "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" >> $GITHUB_ENV
+          TEST_PATH=$RV_ROOT/test_results
+          echo "TEST_PATH=$TEST_PATH" >> $GITHUB_ENV
+          echo "FULL_NAME=${{ matrix.bus }}-exceptions-${{ matrix.test }}-waypack${{ matrix.cache_waypack }}" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: |
+          export RV_ROOT=`pwd`
+          .github/scripts/run_regression_test.sh $TEST_PATH ${{ matrix.bus }} ${{ matrix.test}} ${{ matrix.coverage }} ${{ matrix.priv }} ${{ matrix.cache_waypack }}
+
+      - name: Prepare coverage data
+        run: |
+          source .venv/bin/activate
+          mkdir -p results
+          .github/scripts/convert_dat.sh ${TEST_PATH}/coverage.dat \
+             results/coverage_${FULL_NAME}
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression_tests_coverage_data-${{ env.FULL_NAME }}_${{ matrix.coverage }}
+          path: results/*.info
+
+  custom-regression-exceptions-tests:
+    name: Custom regression exceptions tests
+    needs: [generate-matrix]
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    strategy:
+      matrix:
+        bus: ["axi"]
+        test: ${{ fromJSON(needs.generate-matrix.outputs.tests) }}
+        priv: ["0"]
+        waypack: ["0", "1"]
+    env:
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run tests
+        run: _secret_custom_regression_exceptions_tests:21
+        env:
+          TEST: ${{ matrix.test }}
+          BUS: ${{ matrix.bus }}
+          PRIV: ${{ matrix.priv }}
+          WAYPACK: ${{ matrix.waypack }}

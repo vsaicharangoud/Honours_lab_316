@@ -1,0 +1,27 @@
+name: GH-Pages PR Remove
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  build:
+    name: PR Remove
+    if: github.event.pull_request.head.repo.owner.login == 'chipsalliance'
+    concurrency:
+      group: gh-pages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+
+      - name: Save PR number
+        run: |
+          echo "number=${{ github.event.number }}" >> delete_pr_number.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: delete_pr_number
+          path: ./delete_pr_number.txt

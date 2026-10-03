@@ -1,0 +1,127 @@
+name: RISCOF tests
+
+on:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  tests:
+    name: Run RISCOF tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      fail-fast: false
+      matrix:
+        coverage: ["all"]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      CCACHE_DIR: "/opt/riscof/.cache/"
+
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install -r .github/scripts/requirements-coverage.txt
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - name: Install RISCOF
+        run: |
+          pip3 install git+https://github.com/riscv/riscof@a02a5b17472e29139a1ef8d1826ac54145fd61d7
+
+      - name: Clone tests
+        run: |
+          mkdir -p riscof
+          pushd riscof
+            riscof --verbose info arch-test --clone
+          popd
+
+      - name: Skip tests
+        run: |
+          pushd riscof/riscv-arch-test/riscv-test-suite
+            # This test accesses memory at address 0x0.
+            # These accesses fail on Spike because it has a debug module in range [0x0; 0x1000).
+            # VeeR doesn't have such restrictions, so they don't fail, which results in a test failure.
+            rm -f rv32i_m/pmp/src/pmpm_cfg_A_tor_zero.S
+            rm -f rv32i_m/pmp/src/pmpzca_misaligned_na4.S
+          popd
+
+      - name: Configure RISCOF
+        run: |
+          pushd riscof
+            # Copy RISCOF configuration
+            cp ../tools/riscof/config.ini ./
+            cp -r ../tools/riscof/spike ./
+            cp -r ../tools/riscof/veer ./
+            # Build the test list
+            riscof testlist --config=config.ini --suite=riscv-arch-test/riscv-test-suite/ --env=riscv-arch-test/riscv-test-suite/env
+          popd
+
+      - name: Build VeeR model
+        run: |
+          export RV_ROOT=`pwd`
+          pushd riscof
+            VEER_OPTS="-set=user_mode=1 -set=smepmp=1"
+            make -f $RV_ROOT/tools/Makefile verilator-build CONF_PARAMS="-set build_axi4 $VEER_OPTS" COVERAGE=${{ matrix.coverage }}
+          popd
+
+      - name: Run tests, collect coverage
+        run: |
+          pushd riscof
+            riscof run --no-browser --config=config.ini --suite=riscv-arch-test/riscv-test-suite/ --env=riscv-arch-test/riscv-test-suite/env
+            mkdir -p coverage
+            verilator_coverage -write ./coverage/coverage.dat `find ./riscof_work/ -type f -name "coverage.dat"`
+          popd
+
+      - name: Prepare coverage data
+        run: |
+          .github/scripts/convert_dat.sh riscof/coverage/coverage.dat \
+             riscof/coverage/coverage_riscof-m
+
+      - name: Prepare report
+        run: |
+          PYTEST_STYLE_SRC_DIR=$(pwd)/.github/scripts/pytest/
+          PYTEST_CSS=${PYTEST_STYLE_SRC_DIR}/css/styles.css
+          pushd riscof/riscof_work
+            bash ${PYTEST_STYLE_SRC_DIR}/style_pytest_report.sh ${PYTEST_STYLE_SRC_DIR} . report.html
+            echo "/* Custom CSS */" >>style.css
+            cat ${PYTEST_CSS} >>style.css
+          popd
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscof_coverage_data_m_${{ matrix.coverage }}
+          path: riscof/coverage/*.info
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscof-report_m_${{ matrix.coverage }}
+          path: |
+            riscof/riscof_work/report.html
+            riscof/riscof_work/style.css
+            riscof/riscof_work/assets
+            riscof/riscof_work/script
+            riscof/riscof_work/rv*
+            !riscof/riscof_work/**/coverage.dat
+
+      - name: Check failure
+        run: |
+          if res=$(grep -no riscof/riscof_work/report.html -e "<tbody.*failed"); then
+            echo "Number of failed RISCOF tests: $(wc -l <<< "$res")" >&2
+            echo "Check the report in artifacts for details." >&2
+            exit 1
+          fi

@@ -1,0 +1,163 @@
+#!/bin/bash
+
+SELF_DIR="$(dirname $(readlink -f ${BASH_SOURCE[0]}))"
+. ${SELF_DIR}/common.inc.sh
+
+trap report_status EXIT
+
+report_status(){
+    rc=$?
+    if [ $rc != 0 ]; then
+        echo -e "${COLOR_WHITE}Test '${NAME}' ${COLOR_RED}FAILED${COLOR_CLEAR}"
+    else
+        [ -f ${DIR}/coverage.dat ] && mv ${DIR}/coverage.dat ${RESULTS_DIR}/
+        echo -e "${COLOR_WHITE}Test '${NAME}' ${COLOR_GREEN}SUCCEEDED${COLOR_CLEAR}"
+    fi
+    exit $rc
+}
+
+run_regression_test(){
+    # Run a regression test with coverage collection enabled
+    # Args:
+    # RESULTS_DIR -
+    # BUS -
+    # NAME -
+    # COVERAGE -
+    # USER_MODE - '1' for user mode, '0' for without user mode
+    # CACHE WAYPACK -
+    # SIMULATOR - (Optional) 'verilator' (default) or 'vcs'
+    # ICACHE_NUM_WAYS - (Optional) '2' (default) or '4'
+    RESULTS_DIR=$1
+    BUS=$2
+    NAME=$3
+    COVERAGE=$4
+    USER_MODE=$5
+    ICACHE_WAYPACK=$6
+    SIMULATOR=${7:-verilator}
+    ICACHE_NUM_WAYS=${8:-2}
+    echo -e "${COLOR_WHITE}========== running test '${NAME}' =========${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} RESULTS_DIR     = ${RESULTS_DIR}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} SYSTEM BUS      = ${BUS}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} NAME            = ${NAME}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} COVERAGE        = ${COVERAGE}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} USER_MODE       = ${USER_MODE}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} ICACHE_WAYPACK  = ${ICACHE_WAYPACK}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} ICACHE_NUM_WAYS = ${ICACHE_NUM_WAYS}${COLOR_CLEAR}"
+    echo -e "${COLOR_WHITE} SIMULATOR       = ${SIMULATOR}${COLOR_CLEAR}"
+
+    COMMON_PARAMS="-set bitmanip_zba -set bitmanip_zbb -set bitmanip_zbc -set bitmanip_zbe -set bitmanip_zbf -set bitmanip_zbp -set bitmanip_zbr -set bitmanip_zbs -set=fpga_optimize=0"
+
+    if [[ "${USER_MODE}" == "1" ]]; then
+        COMMON_PARAMS="-set=user_mode=1 -set=smepmp=1 ${COMMON_PARAMS}"
+    fi
+
+    # DLCS_ENABLE may not be set
+    set +u
+    if [[ -z "${DCLS_ENABLE}" ]]; then
+        DCLS_ENABLE="0"
+    fi
+    if [[ -z "${DCLS_REGFILE_READ_ENABLE}" ]]; then
+        DCLS_REGFILE_READ_ENABLE="0"
+    fi
+    set -u
+
+    if [[ "${DCLS_ENABLE}" ==  "1" ]]; then
+        COMMON_PARAMS="-set lockstep_enable=1 -set lockstep_regfile_enable=1 -set lockstep_delay=${DCLS_DELAY} ${COMMON_PARAMS}"
+        if [[ "${DCLS_REGFILE_READ_ENABLE}" == "1" ]]; then
+            COMMON_PARAMS="-set lockstep_regfile_read_enable=1 ${COMMON_PARAMS}"
+        fi
+    fi
+
+    # ICCM_ADDR_XOR may not be set
+    set +u
+    if [[ -z "${ICCM_ADDR_XOR}" ]]; then
+        ICCM_ADDR_XOR="0"
+    fi
+    set -u
+
+    if [[ "${ICCM_ADDR_XOR}" == "1" ]]; then
+        COMMON_PARAMS="-set iccm_addr_xor=1 ${COMMON_PARAMS}"
+    fi
+
+    # DCCM_ADDR_XOR may not be set
+    set +u
+    if [[ -z "${DCCM_ADDR_XOR}" ]]; then
+        DCCM_ADDR_XOR="0"
+    fi
+    set -u
+
+    if [[ "${DCCM_ADDR_XOR}" == "1" ]]; then
+        COMMON_PARAMS="-set dccm_addr_xor=1 ${COMMON_PARAMS}"
+    fi
+
+    # DCCM_WR_READBACK may not be set
+    set +u
+    if [[ -z "${DCCM_WR_READBACK}" ]]; then
+        DCCM_WR_READBACK="0"
+    fi
+    if [[ "${ECC}" == "0" ]]; then
+        COMMON_PARAMS="-set icache_ecc=0 ${COMMON_PARAMS}"
+    fi
+    set -u
+
+    if [[ "${DCCM_WR_READBACK}" == "1" ]]; then
+        COMMON_PARAMS="-set dccm_wr_readback=1 ${COMMON_PARAMS}"
+    fi
+
+    MUBI_WIDTH="${MUBI_WIDTH:-}"
+    MUBI_TRUE="${MUBI_TRUE:-}"
+    MUBI_FALSE="${MUBI_FALSE:-}"
+
+    if [[ -n "${MUBI_WIDTH}" ]]; then
+        COMMON_PARAMS="-set mubi_width=${MUBI_WIDTH} ${COMMON_PARAMS}"
+        if [[ -n "${MUBI_TRUE}" ]]; then
+            COMMON_PARAMS="-set mubi_true=${MUBI_TRUE} ${COMMON_PARAMS}"
+        fi
+        if [[ -n "${MUBI_FALSE}" ]]; then
+            COMMON_PARAMS="-set mubi_false=${MUBI_FALSE} ${COMMON_PARAMS}"
+        fi
+    fi
+
+    COMMON_PARAMS="-set=icache_waypack=${ICACHE_WAYPACK} -set=icache_num_ways=${ICACHE_NUM_WAYS} ${COMMON_PARAMS}"
+
+    if [[ "${BUS}" == "axi" ]]; then
+        PARAMS="-set build_axi4 ${COMMON_PARAMS}"
+    elif [[ "${BUS}" == "ahb" ]]; then
+        PARAMS="-set build_ahb_lite ${COMMON_PARAMS}"
+    else
+        echo -e "${COLOR_RED}Unknown system bus type '${BUS}'${COLOR_CLEAR}"
+        exit 1
+    fi
+
+    echo -e "${COLOR_WHITE} CONF PARAMS = ${PARAMS}${COLOR_CLEAR}"
+
+    mkdir -p ${RESULTS_DIR}
+    ECC_VAL="${ECC:-1}"
+    LOG="${RESULTS_DIR}/test_${NAME}_${BUS}_${COVERAGE}_${USER_MODE}_ecc_${ECC_VAL}.log"
+    touch ${LOG}
+    DIR="run_${NAME}_${BUS}_${COVERAGE}_${USER_MODE}_ecc_${ECC_VAL}"
+
+    if [ "$NAME" = "pmp_random" ] || [ "$NAME" = "dcls_mubi_sweep" ]; then
+        EXTRA_ARGS='TB_MAX_CYCLES=8000000'
+    else
+        EXTRA_ARGS=
+    fi
+
+    # Run the test
+    mkdir -p ${DIR}
+    make -j`nproc` -C ${DIR} -f $RV_ROOT/tools/Makefile ${SIMULATOR} $EXTRA_ARGS CONF_PARAMS="${PARAMS}" TEST=${NAME} COVERAGE=${COVERAGE} 2>&1 | tee ${LOG}
+}
+
+# Example usage
+# RESULTS_DIR=results
+# BUS=axi
+# NAME=hello_world
+# COVERAGE=branch
+# USER_MODE=1
+# run_regression_test.sh $RESULTS_DIR $BUS $NAME $COVERAGE $USER_MODE $ICACHE_WAYPACK $SIMULATOR $ICACHE_NUM_WAYS
+
+if [ "$#" -lt 6 ] || [ "$#" -gt 8 ]; then
+    echo -e "${COLOR_WHITE}Expected 6, 7 or 8 arguments, but received $# ${COLOR_RED}FAIL${COLOR_CLEAR}"
+    exit 1
+fi
+run_regression_test "$@"

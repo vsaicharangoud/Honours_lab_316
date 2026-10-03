@@ -1,0 +1,121 @@
+name: Test-OpenOCD
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    name: Run OpenOCD tests
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      fail-fast: false
+      matrix:
+        coverage: ["all"]
+        bus: ["axi4", "ahb_lite"]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      CCACHE_DIR: "/opt/openocd-tests/.cache/"
+
+    steps:
+      - name: Setup Cache Metadata
+        id: cache_metadata
+        run: |
+          date=$(date +"%Y_%m_%d")
+          time=$(date +"%Y%m%d_%H%M%S_%N")
+          cache_test_restore_key=${{ matrix.coverage }}_
+          cache_test_key=${cache_test_restore_key}${time}
+          echo "date=$date" | tee -a "$GITHUB_ENV"
+          echo "time=$time" | tee -a "$GITHUB_ENV"
+          echo "cache_test_restore_key=$cache_test_restore_key" | tee -a "$GITHUB_ENV"
+          echo "cache_test_key=$cache_test_key" | tee -a "$GITHUB_ENV"
+
+      - name: Setup repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt -qqy update && sudo apt -qqy install iproute2
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install -r .github/scripts/requirements-coverage.txt
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - name: Build verilated simulation
+        run: |
+          export RV_ROOT=$(pwd)
+          mkdir run
+          make -C run -f ${RV_ROOT}/tools/Makefile verilator-build program.hex TEST=infinite_loop \
+            CONF_PARAMS="-set build_${{ matrix.bus }} -set openocd_test" COVERAGE=${{ matrix.coverage }} -j$(nproc)
+          cd run
+          ${RV_ROOT}/.github/scripts/openocd_test.sh \
+            -f ${RV_ROOT}/testbench/openocd_scripts/verilator-rst.cfg \
+            -f ${RV_ROOT}/testbench/openocd_scripts/jtag_cg.tcl
+          pkill openocd || true
+
+      - name: Test with GDB-test (register access, memory access, breakpoints)
+        run: |
+          export RV_ROOT=$(pwd)
+          mkdir gdb_test
+          make -C gdb_test -f ${RV_ROOT}/tools/Makefile verilator-build program.hex TEST=infinite_loop \
+            CONF_PARAMS="-set build_${{ matrix.bus }} -set openocd_test" COVERAGE=${{ matrix.coverage }} -j$(nproc)
+          cd gdb_test
+          ${RV_ROOT}/.github/scripts/gdb_test.sh
+          pkill openocd || true
+
+      - name: Prepare coverage data
+        run: |
+          export RV_ROOT=$(pwd)
+
+          mkdir -p results
+
+          if [ ${{ matrix.bus }} = axi4 ]; then
+              BUS_NAME=axi
+          elif [ ${{ matrix.bus }} = ahb_lite ]; then
+              BUS_NAME=ahb
+          fi
+
+          .github/scripts/convert_dat.sh ${RV_ROOT}/run/coverage.dat \
+             results/coverage_${BUS_NAME}-openocd
+          .github/scripts/convert_dat.sh ${RV_ROOT}/gdb_test/coverage.dat \
+             results/coverage_${BUS_NAME}-openocd-gdb
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openocd_coverage_data_${{ matrix.bus }}_${{ matrix.coverage }}
+          path: results/*.info
+
+  custom-openocd-tests:
+    name: Run Custom OpenOCD tests
+    if: inputs.run_custom
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    strategy:
+      fail-fast: false
+      matrix:
+        bus: ["axi4"]
+    env:
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run tests
+        run: _secret_custom_openocd_tests:16
+        env:
+          BUS: ${{ matrix.bus }}

@@ -1,0 +1,151 @@
+name: GH-Pages Build and Main Deploy
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: Build and Main Deploy
+    if: inputs.run_custom
+    concurrency:
+      group: gh-pages
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+    permissions:
+      contents: write
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v4
+
+      - name: Print metadata
+        run: |
+          run_information="Repository: ${{ github.repository }} Commit SHA:${{ github.sha }} Workflow: ${{ github.workflow }} Run:${{ github.run_id }}"
+          echo $run_information
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: data_verilator
+          path: data_verilator/
+
+      - name: Download coverage reports merged
+        if: inputs.run_custom
+        uses: actions/download-artifact@v4
+        with:
+          name: data_both
+          path: data_both/
+
+      - name: Download docs
+        uses: actions/download-artifact@v4
+        with:
+          name: docs
+          path: ./docs_rendered
+
+      - name: Download verification reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: verification_dashboard*
+          merge-multiple: true
+          path: ./verification_dashboard
+
+      - name: Download RISCOF report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: riscof-report*
+          merge-multiple: true
+          path: ./riscof_dashboard
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: ./public.checkout
+
+      - name: Preserve only valid items
+        run: |
+          mkdir -p ./public.new
+          mv ./public.checkout/doctrees ./public.new/ | true
+          mv ./public.checkout/html ./public.new/ | true
+
+      - name: Update webpage
+        run: |
+          set -eux
+          set -o pipefail
+
+          apt -y update
+          apt -y install nodejs npm python3 zip git
+
+          echo "Event: $GITHUB_EVENT_NAME, ref: $GITHUB_REF_NAME)"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]
+          then
+            TARGET_DIR="${PWD}/public.new/html/dev/${{ github.event.number }}"
+          elif [ "$GITHUB_REF_NAME" = main ]
+          then
+            TARGET_DIR="${PWD}/public.new/html/main"
+          else
+            # Currently deploying is only possible in PRs and on main but let's
+            # better keep things safe in case that's changed in the future by
+            # using another target dir in other cases.
+            TARGET_DIR="${PWD}/public.new/html/other"
+          fi
+
+          mkdir -p $TARGET_DIR
+
+          # data
+          cd data_verilator
+          zip $TARGET_DIR/data.zip *
+          cd ..
+          if [ -d data_both ]; then
+            cd data_both
+            zip $TARGET_DIR/data_both.zip *
+            cd ..
+          fi
+
+          # get coverview
+          git clone https://github.com/antmicro/coverview
+          cd coverview
+          npm install
+          npm run build
+          if [ -f $TARGET_DIR/data_both.zip ]; then
+            python3 embed.py --inject-data $TARGET_DIR/data_both.zip
+          else
+            python3 embed.py --inject-data $TARGET_DIR/data.zip
+          fi
+          cd ..
+
+          # dashboard
+          rm -rf $TARGET_DIR/coverage_dashboard*
+          mkdir -p $TARGET_DIR/coverage_dashboard/all
+          cp -a coverview/dist/* $TARGET_DIR/coverage_dashboard/all
+
+          # docs
+          rm -rf $TARGET_DIR/docs_rendered
+          mkdir -p $TARGET_DIR/docs_rendered
+          mv ./docs_rendered/* $TARGET_DIR/docs_rendered
+
+          echo ${GITHUB_RUN_ID} > $TARGET_DIR/run_id
+          tar -acf webpage.tar.gz public.new
+
+      - name: Add redirect index page
+        run: |
+          cp .github/scripts/indexgen/index_redirect/index.html ./public.new/
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public.new
+          force_orphan: true
+
+      - name: Pack webpage as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webpage
+          path: ./webpage.tar.gz

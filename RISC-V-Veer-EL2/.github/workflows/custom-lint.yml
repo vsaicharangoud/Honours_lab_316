@@ -1,0 +1,26 @@
+name: Custom lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  run-lint:
+    name: Run lint
+    if: >
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.owner.login == 'chipsalliance'
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    env:
+      GHA_EXTERNAL_DISK: additional-tools-all
+      GHA_SA: gh-sa-veer-uploader
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run lint
+        run: _secret_lint:14

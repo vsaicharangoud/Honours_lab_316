@@ -1,0 +1,163 @@
+name: Coverage report
+
+on:
+  workflow_call:
+    inputs:
+      run_custom:
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  merge-verilator-reports:
+    name: Merge Verilator info data
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*coverage_data*"
+          merge-multiple: true
+          path: ./
+
+      - name: Setup info-process
+        run: .github/scripts/info_process_setup.sh
+
+      - name: Merge data
+        run: |
+          mkdir info_files_verilator
+          mv *.info info_files_verilator/
+          export SIM=verilator
+          .github/scripts/prepare_coverage_data.sh
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verilator_coverage_single_data
+          path: verilator_coverage_single_data.tar.xz
+
+      - name: Pack artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_verilator
+          path: data_verilator/*
+
+  custom-coverage-reports:
+    name: Custom coverage reports
+    if: inputs.run_custom
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: antmicro/centos-dev-tools
+    env:
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Prepare Environment
+        run: _secret_prepare_env:7
+
+      - name: Generate custom reports
+        run: _secret_custom_report:68
+
+      - name: Pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: info_files_v_mapped
+          path: info_files_v/*
+
+  both-coverage-reports:
+    name: Coverage reports merger
+    runs-on: [ self-hosted, Linux, X64, gcp-custom-runners ]
+    container: debian:trixie
+    needs: [merge-verilator-reports, custom-coverage-reports]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      GHA_EXTERNAL_DISK: additional-tools
+      GHA_SA: gh-sa-veer-uploader
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Extract custom coverage
+        run: _secret_extract_custom_coverage:5
+
+      - name: Setup info-process
+        run: .github/scripts/info_process_setup.sh
+
+      - name: Prepare custom coverage
+        run: |
+          export SIM=v
+          .github/scripts/prepare_coverage_data.sh
+          # info_files_v_mapped uses the same dir.
+          rm -rf info_files_v
+
+      - name: Pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: v_coverage_single_data
+          path: v_coverage_single_data.tar.xz
+
+      - name: Pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_v
+          path: data_v/*
+
+      - name: Download Verilator data
+        uses: actions/download-artifact@v4
+        with:
+          name: data_verilator
+          path: data_verilator/
+
+      - name: Compare tests
+        run: |
+          cat data_v/*.desc | grep '^TEST:' | sed 's#.*,##' | sed 's#;#\n#g' | sort | uniq >tests_v
+          cat data_verilator/*.desc | grep '^TEST:' | sed 's#.*,##' | sed 's#;#\n#g' | sort | uniq >tests_verilator
+          # `|| true` because it's only needed for informational purposes, a difference is not a reason to fail.
+          diff -yt tests_v tests_verilator || true
+
+      - name: Create merged package
+        run: |
+          .github/scripts/create_merged_package.sh
+          rm -rf data_verilator
+          rm -rf data_v
+
+      - name: Pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_both
+          path: data_both/*
+
+      - name: Download V mapped info files
+        uses: actions/download-artifact@v4
+        with:
+          name: info_files_v_mapped
+          path: info_files_v
+
+      - name: Prepare custom coverage
+        run: |
+          export SIM=v
+          .github/scripts/prepare_coverage_data.sh
+
+      - name: Pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_v_mapped
+          path: data_v/*

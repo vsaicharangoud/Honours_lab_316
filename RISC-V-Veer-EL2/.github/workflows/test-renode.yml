@@ -1,0 +1,40 @@
+name: Renode tests
+
+on:
+  workflow_call:
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/antmicro/cores-veer-el2:20260923
+    strategy:
+      fail-fast: false
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build tests
+        run: |
+          export RV_ROOT=`pwd`
+          cd ./tools/renode
+          ./build-all-tests.sh
+
+      - name: Run tests
+        run: |
+          cd ./tools/renode
+          pip3 install -r /opt/renode/tests/requirements.txt --break-system-packages
+          /opt/renode/renode-test veer.robot
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renode_results
+          path: |
+            tools/renode/log.html
+            tools/renode/report.html
+            tools/renode/robot_output.xml
