@@ -10,51 +10,46 @@ The primary technical focus of the work is on **digital hardware design, synthes
 
 ---
 
-## 📌 Current Project — Packet Buffering
+## 📌 Current Project — RISC-V Veer EL2 Based Hardware Packet Buffering and Data Integrity SoC
 
 ### Overview
 
-The primary ongoing work in this repository is the development of a **hardware-based Packet Buffering architecture for an SoC-oriented system**.
+The primary ongoing work in this repository is the development of a **RISC-V Veer EL2 based hardware Packet Buffering and Data Integrity SoC**.
 
-In digital systems and SoCs, data does not always arrive and get processed at the same rate. A producer may generate data faster than a consumer can process it, or the receiving module may temporarily be unable to accept new data.
+The system combines a **RISC-V processor, AXI4 system interconnect, packet buffering, CRC-based data integrity checking, packet/event monitoring, and memory-mapped peripherals** into a single SoC-oriented hardware architecture.
 
-A **packet buffer** provides temporary storage for incoming packets and allows them to be forwarded when the downstream module is ready.
+![RISC-V Veer EL2 Based Hardware Packet Buffering and Data Integrity SoC](Honours-Project-Packet-Buffering/docs/packet_buffering_block_diagram.png)
 
-At a high level:
+The architecture is divided into two major paths:
 
-```text
-                 Incoming Packets
-                        │
-                        ▼
-              ┌───────────────────┐
-              │   Input Control   │
-              │  / Write Control  │
-              └─────────┬─────────┘
-                        │
-                        ▼
-              ┌───────────────────┐
-              │                   │
-              │   PACKET BUFFER   │
-              │                   │
-              │  Packet Storage   │
-              │                   │
-              │  Buffer Control   │
-              │                   │
-              └─────────┬─────────┘
-                        │
-                        ▼
-              ┌───────────────────┐
-              │   Output Control  │
-              │   / Read Control  │
-              └─────────┬─────────┘
-                        │
-                        ▼
-                  Packet Consumer
-```
+- **Path A — Primary Packet Data Path**
+- **Path B — Processor Control / Status Path**
 
-The architecture is being developed from an **RTL and SoC hardware-design perspective**, with emphasis on reliable packet storage, controlled data movement, and correct handling of buffer conditions.
+This separation allows the packet data to flow through dedicated hardware datapath logic while the RISC-V processor is responsible for configuration, monitoring, control, and reading system status.
 
 ---
+
+### 🔹 Path A — Primary Packet Data Path
+
+The primary packet data path handles the actual packet flow through the hardware.
+
+```text
+RTL Testbench / Packet Source
+            │
+            ▼
+       Packet FIFO
+            │
+            ▼
+       CRC Checker
+            │
+       ┌────┴────┐
+       │         │
+    CRC PASS   CRC ERROR
+       │         │
+       └────┬────┘
+            ▼
+      Packet Counter
+```
 
 ## ➤ Packet Buffering Objectives
 
@@ -162,9 +157,9 @@ A conceptual valid/ready-style interface can be represented as:
 ```text
     Producer                         Buffer / Consumer
        │                                    │
-       │ ----------- VALID --------------> │
+       │ ------------- VALID -------------> │
        │                                    │
-       │ <------------ READY ------------- │
+       │ <------------ READY -------------- │
        │                                    │
        │           DATA TRANSFER            │
        │                                    │
