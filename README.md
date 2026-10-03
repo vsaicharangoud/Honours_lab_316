@@ -1,482 +1,348 @@
 # Honours Lab 316
 
-A centralized repository for the **Digital VLSI, RTL Design, SoC, FPGA, and Hardware IP development work** carried out as part of Honours Lab 316.
+> **Digital VLSI • RTL Design • SoC • Hardware IP • FPGA**
 
-The repository contains the ongoing **Honours Project – Packet Buffering** together with additional hardware IP and RTL projects developed during the lab, including **I2C, AXI-Lite UART, and AES**.
+This repository contains the **Digital VLSI, RTL, SoC, FPGA, and hardware IP development work** carried out as part of **Honours Lab**.
 
----
+The repository brings together the current **Honours Project on Packet Buffering** along with additional hardware IP and RTL projects developed during the lab, including **I2C, AXI-Lite UART, and AES**.
 
-# 1. Current Work – Packet Buffering
-
-## 1.1 Overview
-
-The primary ongoing project in this repository is the design and development of a **hardware-based Packet Buffering architecture for an SoC-oriented system**.
-
-Packet buffering is used when data packets arrive at a hardware block faster than they can be processed or forwarded. Instead of losing data when the downstream block is temporarily unavailable, the incoming packets are stored in a buffer and are transmitted or processed when the receiving side is ready.
-
-This makes packet buffering an important part of communication-oriented SoCs, networking hardware, bus systems, and other digital systems where data can arrive in bursts or where producer and consumer modules may operate at different rates.
-
-The project is being developed from an RTL-design perspective, with emphasis on:
-
-- Digital hardware architecture
-- Packet storage and forwarding
-- Buffer management
-- Read/write control
-- Flow control
-- Handshaking
-- Full and empty handling
-- Data integrity
-- RTL verification
-- Synthesis
-- FPGA-oriented implementation
+The primary technical focus of the work is on **digital hardware design, synthesizable RTL, reusable IP development, SoC interfaces, verification, and FPGA-oriented implementation**.
 
 ---
 
-## 1.2 Why Packet Buffering is Required
+## 📌 Current Project — Packet Buffering
 
-Consider a simple producer-consumer system:
+### Overview
+
+The primary ongoing work in this repository is the development of a **hardware-based Packet Buffering architecture for an SoC-oriented system**.
+
+In digital systems and SoCs, data does not always arrive and get processed at the same rate. A producer may generate data faster than a consumer can process it, or the receiving module may temporarily be unable to accept new data.
+
+A **packet buffer** provides temporary storage for incoming packets and allows them to be forwarded when the downstream module is ready.
+
+At a high level:
 
 ```text
-+----------------+       Data Packets       +----------------+
-|                | -----------------------> |                |
-|  Packet        |                          |  Packet        |
-|  Producer      |                          |  Consumer      |
-|                | <----------------------- |                |
-+----------------+       Flow Control       +----------------+
+                 Incoming Packets
+                        │
+                        ▼
+              ┌───────────────────┐
+              │   Input Control   │
+              │  / Write Control  │
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │                   │
+              │   PACKET BUFFER   │
+              │                   │
+              │  Packet Storage   │
+              │                   │
+              │  Buffer Control   │
+              │                   │
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │   Output Control  │
+              │   / Read Control  │
+              └─────────┬─────────┘
+                        │
+                        ▼
+                  Packet Consumer
 ```
 
-The producer and consumer do not necessarily operate at the same rate.
-
-For example:
-
-```text
-Producer Rate  >  Consumer Rate
-        |
-        v
-+------------------+
-| Incoming Packets  |
-+------------------+
-        |
-        v
-+------------------+
-|  PACKET BUFFER   |
-|                  |
-| P0               |
-| P1               |
-| P2               |
-| P3               |
-| ...              |
-+------------------+
-        |
-        v
-+------------------+
-| Packet Consumer  |
-+------------------+
-```
-
-The buffer temporarily absorbs the difference between the incoming and outgoing data rates.
-
-Without sufficient buffering, packets may be dropped when the consumer is unable to accept data.
+The architecture is being developed from an **RTL and SoC hardware-design perspective**, with emphasis on reliable packet storage, controlled data movement, and correct handling of buffer conditions.
 
 ---
 
-# 2. Packet Buffering – High-Level Architecture
+## ➤ Packet Buffering Objectives
 
-The current project is being developed around the following high-level concept:
+The current project focuses on:
 
-```text
-                    PACKET BUFFERING SYSTEM
-
-       Input / Producer
-              |
-              | Packet Data
-              | Valid / Write
-              v
-     +----------------------+
-     |                      |
-     |   Input / Write      |
-     |     Control          |
-     |                      |
-     +----------+-----------+
-                |
-                v
-       +--------------------+
-       |                    |
-       |    PACKET BUFFER   |
-       |                    |
-       |  +--------------+  |
-       |  | Packet Data  |  |
-       |  | Storage      |  |
-       |  +--------------+  |
-       |                    |
-       |  Buffer Management |
-       |  Read / Write Ctrl |
-       |  Occupancy Status  |
-       +----------+---------+
-                  |
-                  v
-       +--------------------+
-       |                    |
-       |  Output / Read     |
-       |     Control        |
-       |                    |
-       +----------+---------+
-                  |
-                  | Packet Data
-                  | Valid / Ready
-                  v
-          Output / Consumer
-```
-
-The exact internal architecture is being refined as the project progresses. The diagram above represents the conceptual data path and control flow rather than a fixed final RTL implementation.
+- Designing a synthesizable packet buffering architecture.
+- Temporarily storing incoming packets.
+- Managing packet write and read operations.
+- Handling buffer availability.
+- Handling full and empty conditions.
+- Maintaining packet ordering.
+- Preventing invalid reads and unwanted overwrites.
+- Supporting controlled packet forwarding.
+- Implementing appropriate flow-control mechanisms.
+- Handling continuous and burst packet traffic.
+- Maintaining data integrity.
+- Developing a verification environment.
+- Performing synthesis and hardware-resource analysis.
+- Preparing the design for FPGA-oriented implementation.
 
 ---
 
-# 3. Packet Buffering – Basic Operation
+## ➤ Packet Buffer Operation
 
-The operation can be understood in four stages.
-
-## Stage 1 – Packet Arrival
-
-A packet arrives from the input/producer interface.
+The basic operation can be represented as:
 
 ```text
-Producer
-   |
-   | Packet
-   v
-[Input Interface]
+        Producer
+           │
+           │ Packet Data
+           ▼
+    ┌───────────────┐
+    │ Input / Write │
+    │    Control    │
+    └───────┬───────┘
+            │
+            ▼
+    ┌─────────────────────┐
+    │                     │
+    │    Packet Buffer    │
+    │                     │
+    │ ┌─────────────────┐ │
+    │ │ Packet Storage  │ │
+    │ └─────────────────┘ │
+    │                     │
+    │ Buffer Management   │
+    │ Read / Write Ctrl   │
+    │ Occupancy / Status  │
+    │                     │
+    └──────────┬──────────┘
+               │
+               ▼
+       ┌──────────────┐
+       │ Output / Read│
+       │    Control   │
+       └──────┬───────┘
+              │
+              │ Packet Data
+              ▼
+          Consumer
 ```
 
-The input-side control logic determines whether the buffer can accept the packet.
+### 1. Packet Arrival
 
----
+A packet arrives from the input or producer interface.
 
-## Stage 2 – Packet Storage
+The input-side control logic determines whether the buffer is capable of accepting the incoming data.
 
-If the buffer has available space, the packet is written into the storage structure.
+### 2. Packet Storage
 
-```text
-Packet
-  |
-  v
-+-------------------+
-|   Packet Buffer   |
-|-------------------|
-| Packet 0          |
-| Packet 1          |
-| Packet 2          |
-| Packet 3          |
-| ...               |
-+-------------------+
-```
+When storage is available, the packet is written into the buffer.
 
-The write-side control keeps track of where the next packet/data item should be stored.
+The write-side logic manages where the incoming packet/data should be stored.
 
----
+### 3. Buffer Management
 
-## Stage 3 – Buffer Management
-
-The control logic maintains the state of the buffer.
+The buffer control logic keeps track of the current state of the storage.
 
 Important conditions include:
 
-```text
-                +----------------+
-                | Buffer Status  |
-                +----------------+
-                  /      |      \
-                 /       |       \
-                v        v        v
-             EMPTY    PARTIAL    FULL
-```
-
-The buffer must correctly handle:
-
-- Empty condition
-- Full condition
+- Empty
+- Partially occupied
+- Full
 - Valid write
 - Valid read
-- Simultaneous read/write
-- Available space
+- Available storage
 - Available data
+- Simultaneous read/write
 - Flow-control conditions
 
----
+### 4. Packet Forwarding
 
-## Stage 4 – Packet Forwarding
+When the downstream module is ready, stored packet data is read from the buffer and forwarded to the consumer.
 
-When the downstream consumer is ready, a stored packet is read from the buffer and forwarded.
-
-```text
-+-------------------+
-|   Packet Buffer   |
-+---------+---------+
-          |
-          | Stored Packet
-          v
-+-------------------+
-| Output Interface  |
-+---------+---------+
-          |
-          v
-      Consumer
-```
-
-This allows the producer and consumer to operate without requiring them to process every packet at exactly the same time.
+This allows the producer and consumer to operate without requiring identical processing rates.
 
 ---
 
-# 4. Packet Buffering – Flow Control
+## ➤ Flow Control
 
-Flow control is an important part of the project.
+Flow control is an important aspect of packet buffering.
 
-A typical conceptual handshake can be represented as:
+A conceptual valid/ready-style interface can be represented as:
 
 ```text
-Producer                         Buffer / Consumer
-   |                                   |
-   | -------- VALID -----------------> |
-   |                                   |
-   | <--------- READY ---------------- |
-   |                                   |
-   |       Data Transfer               |
-   |                                   |
+    Producer                         Buffer / Consumer
+       │                                    │
+       │ ----------- VALID --------------> │
+       │                                    │
+       │ <------------ READY ------------- │
+       │                                    │
+       │           DATA TRANSFER            │
+       │                                    │
 ```
 
-A transfer takes place when the required handshake conditions are satisfied.
-
-The buffering logic therefore has to ensure that:
+The buffering logic must ensure that:
 
 - Data is accepted only when storage is available.
-- Data is not overwritten before it is consumed.
-- Data is not read when no valid data is available.
-- Backpressure can be propagated when required.
+- Valid data is not overwritten.
+- Data is not read when the buffer is empty.
+- Backpressure can be handled where required.
 - Packet ordering is maintained.
-- Valid data is forwarded to the consumer.
+- Valid packet data is forwarded correctly.
 
 ---
 
-# 5. Packet Buffering – Full and Empty Conditions
+## ➤ Buffer Conditions
 
-Two fundamental buffer conditions are:
+### Empty Condition
 
-## Empty
-
-The buffer contains no valid data.
+When the buffer contains no valid packet/data:
 
 ```text
-+-------------------+
-|   PACKET BUFFER   |
-|-------------------|
-|                   |
-|       EMPTY       |
-|                   |
-+-------------------+
-
-        READ
-         |
-         X
-     No valid data
+┌──────────────────────┐
+│    PACKET BUFFER     │
+│                      │
+│        EMPTY         │
+│                      │
+└──────────────────────┘
 ```
 
-A read operation should not remove or forward invalid data when the buffer is empty.
+A read operation must not result in invalid packet transfer.
 
----
+### Full Condition
 
-## Full
-
-The buffer has no remaining storage space.
+When the buffer has no remaining storage:
 
 ```text
-+-------------------+
-|   PACKET BUFFER   |
-|-------------------|
-| Packet 0          |
-| Packet 1          |
-| Packet 2          |
-| Packet 3          |
-| Packet ...        |
-| Packet N          |
-+-------------------+
-
-          FULL
+┌──────────────────────┐
+│    PACKET BUFFER     │
+│──────────────────────│
+│      Packet 0        │
+│      Packet 1        │
+│      Packet 2        │
+│       ...            │
+│      Packet N        │
+│                      │
+│        FULL          │
+└──────────────────────┘
 ```
 
-When the buffer is full, additional incoming data must be controlled so that existing data is not overwritten.
-
-The exact full/empty implementation depends on the final buffer architecture selected for the project.
+The design must prevent new writes from corrupting already stored data.
 
 ---
 
-# 6. Packet Buffering – Important Design Requirements
-
-The project is being developed with the following design requirements in mind.
-
-### 6.1 Data Integrity
-
-Every accepted packet must be stored correctly and must be retrieved without corruption.
-
-### 6.2 Packet Ordering
-
-Packets should be forwarded in the correct order unless the final architecture explicitly defines another scheduling mechanism.
-
-```text
-Input:
-
-P0 -> P1 -> P2 -> P3
-
-Output:
-
-P0 -> P1 -> P2 -> P3
-```
-
-### 6.3 Overflow Protection
-
-The design must prevent writes from corrupting valid data when the buffer is full.
-
-### 6.4 Underflow Protection
-
-The design must prevent invalid reads when the buffer contains no valid packet/data.
-
-### 6.5 Flow Control
-
-The design must correctly indicate when it can accept new data and when the downstream side can receive data.
-
-### 6.6 Simultaneous Operations
-
-The design should correctly handle cases where reading and writing occur during the same clock cycle, according to the final architecture and interface specification.
-
-### 6.7 Synthesizable RTL
-
-The implementation is intended to use synthesizable Verilog/SystemVerilog RTL suitable for FPGA and hardware implementation.
-
----
-
-# 7. Packet Buffering – Verification
+## ➤ Packet Buffer Verification
 
 Verification is an important part of the project.
 
-The verification process is intended to check:
+The verification effort is intended to cover:
 
 - Reset behavior
 - Packet write operation
 - Packet read operation
-- Buffer empty behavior
-- Buffer full behavior
+- Empty-buffer behavior
+- Full-buffer behavior
 - Continuous packet transfers
 - Back-to-back packets
 - Simultaneous read/write operations
 - Flow-control behavior
 - Packet ordering
 - Data integrity
-- Boundary and corner cases
+- Boundary conditions
+- Corner cases
 
-A conceptual verification flow is:
-
-```text
-              +------------------+
-              |   RTL DUT        |
-              | Packet Buffer    |
-              +--------+---------+
-                       |
-                       |
-              +--------v---------+
-              |    Testbench     |
-              +--------+---------+
-                       |
-          +------------+------------+
-          |            |            |
-          v            v            v
-       Stimulus     Monitor      Checker
-          |            |            |
-          +------------+------------+
-                       |
-                       v
-                Expected vs Actual
-                       |
-                       v
-                  PASS / FAIL
-```
-
-As development progresses, the verification environment will be expanded to cover functional and corner-case behavior.
-
----
-
-# 8. Packet Buffering – Development Flow
-
-The project follows a standard RTL development flow:
+A general verification flow is:
 
 ```text
-Specification
-      |
-      v
-Architecture Definition
-      |
-      v
-RTL Design
-      |
-      v
-Testbench Development
-      |
-      v
-Simulation
-      |
-      v
-Functional Verification
-      |
-      v
-Synthesis
-      |
-      v
-FPGA Implementation
-      |
-      v
-Hardware Evaluation
+                 ┌─────────────────┐
+                 │   Packet Buffer │
+                 │       RTL       │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │    Testbench    │
+                 └────────┬────────┘
+                          │
+              ┌───────────┼───────────┐
+              │           │           │
+              ▼           ▼           ▼
+          Stimulus     Monitor     Checker
+              │           │           │
+              └───────────┼───────────┘
+                          │
+                          ▼
+                  Expected vs Actual
+                          │
+                          ▼
+                       PASS/FAIL
 ```
 
-The final stages depend on the project implementation and available hardware resources.
+The verification environment will be expanded as the RTL architecture is finalized.
 
 ---
 
-# 9. Additional Projects Developed in Honours Lab
+# 🔌 Additional Hardware IPs and Projects
 
-In addition to the current Packet Buffering project, this repository contains other hardware design projects and IP development work.
+The repository also contains additional hardware-development work completed as part of Honours Lab.
 
 ---
 
-# 9.1 AXI-Lite UART IP Core
+## 1. I2C Hardware IP
+
+### Overview
+
+The repository contains an **I2C hardware IP** developed for digital serial communication with I2C-compatible peripherals.
+
+The project focuses on understanding and implementing the digital logic required for an I2C communication interface.
+
+### Development Areas
+
+- I2C protocol
+- RTL design
+- Control logic
+- Serial data transfer
+- Clock/control generation
+- SDA/SCL interface
+- Peripheral communication
+- Simulation and verification
+- Reusable hardware IP development
+
+### Repository Location
+
+```text
+Honours_lab_316/
+└── I2C/
+```
+
+The I2C project is maintained independently within its dedicated directory.
+
+---
+
+# 2. AXI-Lite UART IP Core
+
+### Overview
 
 The repository contains an **AXI4-Lite based UART IP core** developed as a reusable SoC peripheral.
 
-The main objective of this work is to understand the implementation of a memory-mapped peripheral and its connection to an SoC through the AXI4-Lite interface.
+The project combines a standard **AXI4-Lite memory-mapped interface** with UART transmit and receive functionality.
 
-## Main Components
+At a high level:
 
 ```text
                  AXI4-Lite
-                    |
-                    v
-          +-------------------+
-          |   AXI-Lite Slave  |
-          |    Interface      |
-          +---------+---------+
-                    |
-                    v
-          +-------------------+
-          |  UART Registers   |
-          +---------+---------+
-                    |
-                    v
-          +-------------------+
-          |   UART Control    |
-          +----+---------+----+
-               |         |
-               v         v
-             UART TX    UART RX
+                     │
+                     ▼
+           ┌───────────────────┐
+           │ AXI-Lite Slave    │
+           │    Interface      │
+           └─────────┬─────────┘
+                     │
+                     ▼
+           ┌───────────────────┐
+           │  UART Registers   │
+           └─────────┬─────────┘
+                     │
+                     ▼
+           ┌───────────────────┐
+           │   UART Control    │
+           └─────────┬─────────┘
+                     │
+                ┌────┴────┐
+                ▼         ▼
+             UART TX   UART RX
 ```
 
-### Areas Covered
+### Main Areas
 
 - AXI4-Lite slave interface
 - Memory-mapped registers
@@ -485,13 +351,14 @@ The main objective of this work is to understand the implementation of a memory-
 - Baud-rate related logic
 - Control and status registers
 - RTL simulation
-- IP development and organization
+- IP development
+- SoC peripheral integration
 
-### Repository Path
+### Repository Location
 
 ```text
 Honours_lab_316/
-└── axi-lite-uart-ipcore/
+└── axi-lite_uart-ipcore/
     ├── documentation/
     ├── scripts/
     ├── src/
@@ -501,40 +368,45 @@ Honours_lab_316/
     └── project.config
 ```
 
+The project is organized as a reusable IP-oriented hardware project with source code, documentation, scripts, and build/project configuration.
+
 ---
 
-# 9.2 AES Hardware Core
+# 3. AES Hardware Core
 
-An **AES hardware encryption core** has also been developed as part of the Honours Lab work.
+### Overview
 
-The AES project includes RTL, testbench, simulation, supporting data, documentation, and synthesis-related files.
+An **AES hardware encryption core** is also included in the repository.
 
-## High-Level Architecture
+The project provides practical experience in implementing a cryptographic hardware core and integrating it with an AXI-based interface.
+
+At a high level:
 
 ```text
                   AXI Interface
-                       |
-                       v
-              +------------------+
-              |   AES Registers  |
-              +--------+---------+
-                       |
-                       v
-              +------------------+
-              |   AES Control    |
-              +--------+---------+
-                       |
-                       v
-              +------------------+
-              |   AES Core       |
-              |                  |
-              |  AES Round Logic |
-              |  S-Box           |
-              |  Key Expansion   |
-              +--------+---------+
-                       |
-                       v
-                Ciphertext
+                       │
+                       ▼
+              ┌─────────────────┐
+              │   AES Registers │
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │   AES Control   │
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │    AES Core     │
+              │                 │
+              │  Round Logic    │
+              │  S-Box          │
+              │  Key Expansion  │
+              │                 │
+              └────────┬────────┘
+                       │
+                       ▼
+                   Ciphertext
 ```
 
 ### Main Components
@@ -549,7 +421,7 @@ The AES project includes RTL, testbench, simulation, supporting data, documentat
 - Supporting data
 - Synthesis-related files
 
-### Repository Path
+### Repository Structure
 
 ```text
 Honours_lab_316/
@@ -565,90 +437,33 @@ Honours_lab_316/
     └── vim_session.vim
 ```
 
----
-
-# 9.3 I2C IP
-
-An **I2C hardware IP** is another project developed as part of Honours Lab.
-
-The project focuses on RTL implementation of the I2C communication interface and development of reusable digital hardware for communication with I2C-compatible peripherals.
-
-## High-Level Concept
-
-```text
-                 SoC / Controller
-                       |
-                       v
-              +------------------+
-              |     I2C IP       |
-              |------------------|
-              | Control Logic    |
-              | Protocol Logic   |
-              | Data Registers   |
-              +--------+---------+
-                       |
-                 +-----+-----+
-                 |           |
-                SDA         SCL
-                 |           |
-                 +-----+-----+
-                       |
-                       v
-                I2C Peripheral
-```
-
-### Development Areas
-
-- I2C protocol
-- RTL design
-- Control logic
-- Serial data transfer
-- Clock/control generation
-- Peripheral communication
-- Simulation and verification
-- Hardware IP development
-
-### Repository Path
-
-```text
-Honours_lab_316/
-└── I2C/
-```
-
-The internal structure of the I2C project is maintained within its dedicated directory.
+The project includes separate RTL, testbench, simulation, documentation, and synthesis-related directories.
 
 ---
 
-# 10. Complete Repository Organization
+# 🗂️ Repository Structure
 
-The current repository is organized as follows:
+The repository is organized into independent project directories while keeping all Honours Lab work under a single repository.
 
 ```text
 Honours_lab_316/
 │
 ├── Honours-Project-Packet-Buffering/
-│   │
 │   └── Current Honours Project
-│       └── Packet Buffering
 │
 ├── I2C/
-│   │
 │   └── I2C Hardware IP
 │
 ├── aes_core-master/
-│   │
 │   ├── bench/verilog/
 │   ├── data/
 │   ├── doc/
 │   ├── rtl/verilog/
 │   ├── sim/rtl_sim/
 │   ├── syn/bin/
-│   ├── aes_core.core
-│   ├── novas.rc
-│   └── vim_session.vim
+│   └── ...
 │
-├── axi-lite-uart-ipcore/
-│   │
+├── axi-lite_uart-ipcore/
 │   ├── documentation/
 │   ├── scripts/
 │   ├── src/
@@ -662,44 +477,11 @@ Honours_lab_316/
 └── README.md
 ```
 
-The repository is intentionally organized so that each major project has its own directory while all work remains under a single Honours Lab repository.
+Each project maintains its own internal organization and project-specific files.
 
 ---
 
-# 11. Project Organization Philosophy
-
-The repository follows a modular hardware-development structure.
-
-```text
-                    Honours Lab 316
-                          |
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-   Current Project   Hardware IPs    Additional RTL
-          |               |               |
-          v               v               v
- Packet Buffering     UART / I2C       AES
-          |
-          v
-    SoC / RTL Design
-```
-
-Each project can be developed independently and can later be integrated into larger SoC or FPGA systems.
-
-This organization also makes it easier to:
-
-- Maintain independent RTL projects.
-- Reuse developed IPs.
-- Maintain project-specific documentation.
-- Maintain separate simulation environments.
-- Develop and verify IPs independently.
-- Integrate multiple IPs into a larger SoC.
-- Track the progression of Honours Lab work.
-
----
-
-# 12. Technologies and Tools
+# 🛠️ Technologies and Tools
 
 ## Hardware Description Languages
 
@@ -714,14 +496,14 @@ This organization also makes it easier to:
 - FSM Design
 - Datapath Design
 - FIFO Architecture
-- Buffer Architecture
+- Packet Buffering
 - Pipelining
 - Flow Control
 - Handshaking
-- SoC Architecture
 - Hardware IP Design
+- SoC Architecture
 
-## SoC / Bus Interfaces
+## SoC and Bus Interfaces
 
 - AXI
 - AXI4-Lite
@@ -736,7 +518,7 @@ This organization also makes it easier to:
 
 ## FPGA / EDA
 
-- Xilinx / AMD Vivado
+- AMD/Xilinx Vivado
 - RTL Simulation
 - Synthesis
 - FPGA Implementation
@@ -761,152 +543,217 @@ This organization also makes it easier to:
 
 ---
 
-# 13. Overall RTL / VLSI Development Flow
+# 🔄 Hardware Development Flow
 
-The projects in this repository are developed with the following general hardware-design methodology:
+The projects in this repository follow a general RTL and digital-hardware development methodology:
 
 ```text
-+----------------------+
-|  System Requirement  |
-+----------+-----------+
-           |
-           v
-+----------------------+
-| Architecture Design |
-+----------+-----------+
-           |
-           v
-+----------------------+
-|     RTL Coding      |
-|  Verilog/SystemVerilog
-+----------+-----------+
-           |
-           v
-+----------------------+
-| Testbench Development|
-+----------+-----------+
-           |
-           v
-+----------------------+
-|      Simulation      |
-+----------+-----------+
-           |
-           v
-+----------------------+
-| Functional Verification|
-+----------+-----------+
-           |
-           v
-+----------------------+
-|      Synthesis       |
-+----------+-----------+
-           |
-           v
-+----------------------+
-| FPGA Implementation  |
-+----------+-----------+
-           |
-           v
-+----------------------+
-| Hardware Evaluation  |
-+----------------------+
+       System Requirements
+               │
+               ▼
+       Architecture Design
+               │
+               ▼
+           RTL Design
+     Verilog / SystemVerilog
+               │
+               ▼
+      Testbench Development
+               │
+               ▼
+           Simulation
+               │
+               ▼
+    Functional Verification
+               │
+               ▼
+           Synthesis
+               │
+               ▼
+      FPGA Implementation
+               │
+               ▼
+       Hardware Evaluation
 ```
+
+The exact development flow varies depending on the individual project.
 
 ---
 
-# 14. Project Status
+# 📊 Project Status
 
 | Project | Status |
 |---|---|
-| Packet Buffering | 🚧 In Progress |
-| I2C IP | 🔄 Under Development |
-| AXI-Lite UART IP | ✅ Developed |
-| AES Hardware Core | ✅ Developed |
-| RTL Verification | 🔄 Ongoing |
-| FPGA Implementation | 🔄 Project Dependent |
+| **Packet Buffering** | 🚧 In Progress |
+| **I2C IP** | ✅ Developed |
+| **AXI-Lite UART IP** | ✅ Developed |
+| **AES Hardware Core** | ✅ Developed |
+| **RTL Verification** | 🔄 Ongoing |
+| **FPGA Implementation** | 🔄 Project Dependent |
 
 ---
 
-# 15. Current Development Direction
+# 🎯 Overall Objectives
 
-The primary development effort is currently focused on the **Packet Buffering Honours Project**.
+The overall objective of Honours Lab 316 is to gain practical experience in **front-end Digital VLSI and digital hardware development**.
 
-The upcoming work includes:
+The work focuses on progressing from system-level requirements to a working RTL implementation and, where applicable, FPGA implementation.
 
-- Finalizing the packet buffering architecture.
+### Major objectives
+
+- Design synthesizable digital hardware.
+- Develop reusable hardware IP.
+- Understand SoC architecture.
+- Work with standard SoC interfaces.
+- Implement communication peripherals.
+- Develop packet buffering and data-management architectures.
+- Create RTL testbenches.
+- Perform functional verification.
+- Understand synthesis and FPGA implementation.
+- Analyze hardware behavior and resource utilization.
+- Develop modular designs suitable for future SoC integration.
+
+---
+
+# 🚀 Current Development Direction
+
+The main development effort is currently focused on the **Packet Buffering Honours Project**.
+
+The planned development includes:
+
+- Finalizing the packet-buffer architecture.
 - Completing the RTL implementation.
-- Refining buffer management logic.
+- Refining buffer-management logic.
 - Implementing robust flow-control mechanisms.
 - Handling full, empty, and boundary conditions.
 - Testing continuous and burst packet traffic.
-- Developing a comprehensive verification environment.
+- Developing comprehensive verification.
 - Performing functional and corner-case verification.
-- Running synthesis and analyzing hardware resources.
+- Running synthesis.
+- Analyzing FPGA resource utilization.
 - Implementing the design on FPGA where applicable.
-- Evaluating performance and resource utilization.
+- Evaluating performance.
 - Documenting the final architecture and results.
 
-The additional UART, I2C, and AES projects provide supporting experience in reusable IP design, SoC interfaces, communication protocols, RTL implementation, and hardware verification.
+The additional **I2C, AXI-Lite UART, and AES** projects provide supporting experience in communication interfaces, reusable IP design, SoC integration, RTL development, and hardware verification.
 
 ---
 
-# 16. Learning and Technical Focus
+# ➤ Technical Focus
 
-The overall technical focus of the Honours Lab work is:
+The overall technical progression of the Honours Lab work can be summarized as:
 
 ```text
 Digital Logic
-     |
-     v
-RTL Design
-     |
-     v
-Hardware IP Development
-     |
-     v
+      │
+      ▼
+  RTL Design
+      │
+      ▼
+Hardware IP
+Development
+      │
+      ▼
 SoC Interfaces
-     |
-     v
-Verification
-     |
-     v
-Synthesis
-     |
-     v
+      │
+      ▼
+  Verification
+      │
+      ▼
+   Synthesis
+      │
+      ▼
 FPGA Implementation
 ```
 
-The work is primarily oriented toward **front-end Digital VLSI and digital hardware design**.
+The work is primarily oriented toward:
+
+> **Digital VLSI • RTL Design • Hardware IP • SoC Architecture • Verification • FPGA**
 
 ---
 
-# 17. Summary
+# 📚 Learning Outcomes
 
-Honours Lab 316 provides practical experience in designing and developing digital hardware systems from architecture to RTL and verification.
+Through the projects in this repository, practical experience is being developed in:
 
-The repository currently brings together:
+### RTL and Digital Design
 
-- **Packet Buffering** – current primary Honours Project
-- **I2C IP** – digital communication IP development
-- **AXI-Lite UART IP** – memory-mapped UART peripheral
-- **AES Hardware Core** – cryptographic hardware implementation
+- Synthesizable Verilog/SystemVerilog
+- FSM-based control
+- Datapath design
+- Sequential and combinational logic
+- FIFO and buffering architectures
+- Pipeline concepts
+- Flow-control mechanisms
 
-The central development focus is:
+### SoC Design
 
-> **Digital VLSI → RTL Design → Hardware IP → SoC Integration → Verification → FPGA Implementation**
+- AXI and AXI4-Lite
+- Memory-mapped peripherals
+- Register interfaces
+- Hardware IP integration
+- SoC interconnect concepts
 
-This repository will be continuously updated as the Packet Buffering project and other hardware-development activities progress.
+### Communication Protocols
+
+- UART
+- I2C
+
+### Verification
+
+- Testbench development
+- Functional verification
+- Directed testing
+- Corner-case testing
+- Simulation debugging
+- Data-integrity checking
+
+### FPGA / VLSI Workflow
+
+- RTL simulation
+- Synthesis
+- FPGA implementation
+- Resource analysis
+- Linux-based EDA workflows
 
 ---
 
-# 18. Author
+# 📁 Project Documentation
 
-**Sai Charan**
+Each major project is maintained in its own directory.
 
-Electronics & Communication Engineering  
-Vasavi College of Engineering
+Project-specific documentation, source code, simulation files, scripts, and configuration files are maintained within the corresponding project directory wherever applicable.
 
-**Technical Focus:**
+For detailed implementation information, refer to the README and documentation available inside each project folder.
+
+---
+
+# ➤ Future Scope
+
+The repository will continue to evolve as the Honours Lab work progresses.
+
+Future additions may include:
+
+- Further development of the Packet Buffering architecture.
+- More comprehensive verification environments.
+- Additional SoC peripheral IPs.
+- AXI-based IP integration.
+- FPGA resource and timing analysis.
+- Hardware validation.
+- Performance optimization.
+- Additional documentation and design reports.
+- Integration of multiple developed IPs into a larger SoC-oriented system.
+
+---
+
+# 👨‍💻 Author
+
+**V Sai Charan Goud**
+
+**Electronics & Communication Engineering**  
+**Vasavi College of Engineering**
+
+### Technical Interests
 
 - Digital VLSI
 - RTL Design
@@ -918,8 +765,60 @@ Vasavi College of Engineering
 
 ---
 
-## Note
+# 📌 Repository Note
 
-This repository contains academic, research-oriented, and project-development work carried out as part of **Honours Lab 316**.
+This repository contains academic, research-oriented, and project-development work carried out as part of **Honours Lab**.
 
-Individual project directories may contain their own README files, source code, simulation environments, scripts, documentation, and project-specific instructions.
+Individual project directories may contain their own:
+
+- RTL source files
+- Testbenches
+- Simulation environments
+- Documentation
+- Scripts
+- Project configuration
+- Synthesis-related files
+
+The repository will be updated continuously as the **Packet Buffering project** and other hardware-development activities progress.
+
+---
+
+## ➤ Summary
+
+**Honours Lab 316** is a practical digital-hardware development repository centered around:
+
+```text
+             DIGITAL VLSI
+                  │
+                  ▼
+              RTL DESIGN
+                  │
+                  ▼
+            HARDWARE IP
+                  │
+                  ▼
+           SoC INTEGRATION
+                  │
+                  ▼
+             VERIFICATION
+                  │
+                  ▼
+              SYNTHESIS
+                  │
+                  ▼
+          FPGA IMPLEMENTATION
+```
+
+### Current Project
+
+**Packet Buffering — In Progress**
+
+### Additional Hardware Work
+
+- **I2C Hardware IP**
+- **AXI-Lite UART IP Core**
+- **AES Hardware Core**
+
+---
+
+> **Honours Lab 316 — Building and verifying digital hardware from RTL to SoC/FPGA implementation.**
