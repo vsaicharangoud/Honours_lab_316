@@ -436,6 +436,64 @@ The project includes separate RTL, testbench, simulation, documentation, and syn
 
 ---
 
+## ➤ RISC-V Processor — VeeR EL2
+
+### Open-Source Processor Integration
+
+The current SoC project integrates the **VeeR EL2 RISC-V processor**, an **open-source RISC-V processor core** from the CHIPS Alliance.
+
+The processor is not designed from scratch as part of this project. Instead, the **open-source VeeR EL2 core is integrated into the custom SoC architecture** and connected with the project's hardware IPs through the **AXI4 system interconnect**.
+
+This allows the project to focus on **SoC architecture, hardware IP integration, packet buffering, data integrity, and RTL-based hardware design** while using an established open-source processor as the programmable processing element.
+
+### Role of VeeR EL2 in the SoC
+
+The VeeR EL2 processor acts as the **main programmable controller** of the system. It communicates with the memory and peripherals through the AXI4-based memory-mapped interface.
+
+The processor is used for:
+
+- System and peripheral configuration
+- Hardware control
+- Packet monitoring
+- FIFO status monitoring
+- CRC status and error monitoring
+- Packet statistics collection
+- Reading hardware status registers
+- Controlling system-level operations
+
+The high-speed packet processing is handled by dedicated RTL hardware such as the **Packet FIFO, CRC Checker, and Packet Counter**, while the RISC-V processor manages the control and monitoring functions.
+
+### Processor–Hardware Interaction
+
+```text
+                 ┌──────────────────────┐
+                 │    VeeR EL2 RISC-V   │
+                 │      Processor       │
+                 │                      │
+                 │  Control / Monitor   │
+                 └──────────┬───────────┘
+                            │
+                           AXI4
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │   AXI4 Interconnect  │
+                 └──────────┬───────────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+     Packet FIFO       CRC Checker      Packet Counter
+          │                 │                 │
+          └─────────────────┴─────────────────┘
+                            │
+                    Status / Events
+                            │
+                            ▼
+                       VeeR EL2
+
+```
+---
+
 # 🗂️ Repository Structure
 
 The repository is organized into independent project directories while keeping all Honours Lab work under a single repository.
@@ -445,6 +503,9 @@ Honours_lab_316/
 │
 ├── Honours-Project-Packet-Buffering/
 │   └── Current Honours Project
+│
+├── RISC-V-VeeR-EL2/
+│   └── Open-source VeeR EL2 RISC-V Processor
 │
 ├── I2C/
 │   └── I2C Hardware IP
@@ -524,7 +585,7 @@ Each project maintains its own internal organization and project-specific files.
 - Linux
 - Git
 - GitHub
-- Make
+- Makelast week
 - Vim / GVim
 
 ## Verification
