@@ -1,0 +1,42 @@
+Command: vcs -full64 -sverilog -timescale=1ns/1ps packet_counter.v ../../wrappers/packet_counter_axi4lite_wrapper.v \
+tb_packet_counter.v -o simv_pc -l compile_pc.log
+                         Chronologic VCS (TM)
+         Version U-2023.03_Full64 -- Sat Oct 17 16:09:09 2026
+
+                    Copyright (c) 1991 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+
+Parsing design file 'packet_counter.v'
+Parsing design file '../../wrappers/packet_counter_axi4lite_wrapper.v'
+Parsing design file 'tb_packet_counter.v'
+Top Level Modules:
+       tb_packet_counter
+TimeScale is 1 ns / 1 ps
+Starting vcs inline pass...
+
+1 module and 0 UDP read.
+recompiling module tb_packet_counter
+rm -f _cuarc*.so _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x ../simv_pc ]; then chmod a-x ../simv_pc; fi
+g++  -o ../simv_pc      -rdynamic  -Wl,-rpath='$ORIGIN'/simv_pc.daidir -Wl,-rpath=./simv_pc.daidir \
+-Wl,-rpath=/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib -L/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib \
+-Wl,-rpath-link=./  /usr/lib64/libnuma.so.1   objs/amcQw_d.o   _451929_archive_1.so \
+SIM_l.o      rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o \
+-lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_tls.o \
+-Wl,-whole-archive  -lvcsucli    -Wl,-no-whole-archive          /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_save_restore_new.o \
+-ldl  -lc -lm -lpthread -ldl 
+../simv_pc up to date
+CPU time: .126 seconds to compile + .098 seconds to elab + .116 seconds to link

@@ -1,0 +1,15 @@
+Command: /home/student/Documents/316/soc_project_packet_buffering/rtl/IPs/fifo/./simv -l sim_run.log +vcs+finish+100000
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03_Full64; Runtime version U-2023.03_Full64;  Oct 17 15:51 2026
+
+=======================================================
+  Packet FIFO IP Core - Self-Checking Testbench
+  Base Address: 0x0007_0000 (Allocated Space: 4 KB)
+=======================================================
+
+--- Test 1: Verifying Reset State and Default Registers ---
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 100000 ps
+CPU Time:      0.110 seconds;       Data structure size:   0.0Mb
+Sat Oct 17 15:51:15 2026

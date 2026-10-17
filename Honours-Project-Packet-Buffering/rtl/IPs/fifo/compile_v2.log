@@ -1,0 +1,57 @@
+Command: vcs -full64 -sverilog -timescale=1ns/1ps +incdir+. fifo_mem.v sync_ptr.v \
+fifo_diag.v wr_domain.v rd_domain.v async_fifo_top.v fifo_axi4lite_slave.v packet_fifo_top.v \
+tb_packet_fifo.v -o simv -l compile_v2.log
+                         Chronologic VCS (TM)
+         Version U-2023.03_Full64 -- Sat Oct 17 16:16:52 2026
+
+                    Copyright (c) 1991 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+
+Parsing design file 'fifo_mem.v'
+Parsing design file 'sync_ptr.v'
+Parsing design file 'fifo_diag.v'
+Parsing design file 'wr_domain.v'
+Parsing design file 'rd_domain.v'
+Parsing design file 'async_fifo_top.v'
+Parsing design file 'fifo_axi4lite_slave.v'
+Parsing included file 'fifo_defines.vh'.
+Back to file 'fifo_axi4lite_slave.v'.
+Parsing design file 'packet_fifo_top.v'
+Parsing included file 'fifo_defines.vh'.
+Back to file 'packet_fifo_top.v'.
+Parsing design file 'tb_packet_fifo.v'
+Parsing included file 'fifo_defines.vh'.
+Back to file 'tb_packet_fifo.v'.
+Top Level Modules:
+       tb_packet_fifo
+TimeScale is 1 ns / 1 ps
+Starting vcs inline pass...
+
+2 modules and 0 UDP read.
+recompiling module tb_packet_fifo
+	However, due to incremental compilation, only 1 module needs to be compiled. 
+rm -f _cuarc*.so _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x ../simv ]; then chmod a-x ../simv; fi
+g++  -o ../simv      -rdynamic  -Wl,-rpath='$ORIGIN'/simv.daidir -Wl,-rpath=./simv.daidir \
+-Wl,-rpath=/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib -L/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib \
+-Wl,-rpath-link=./  /usr/lib64/libnuma.so.1   objs/amcQw_d.o   _461773_archive_1.so \
+_prev_archive_1.so  SIM_l.o      rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o \
+rmar_llvm_0_0.o            -lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile \
+-luclinative /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_tls.o \
+-Wl,-whole-archive  -lvcsucli    -Wl,-no-whole-archive          /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_save_restore_new.o \
+-ldl  -lc -lm -lpthread -ldl 
+../simv up to date
+CPU time: .163 seconds to compile + .145 seconds to elab + .091 seconds to link

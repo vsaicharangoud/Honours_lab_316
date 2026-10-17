@@ -1,0 +1,67 @@
+Command: /home/student/Documents/316/soc_project_packet_buffering/rtl/IPs/fifo/./simv -l sim_after_fix.log
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03_Full64; Runtime version U-2023.03_Full64;  Oct 17 16:16 2026
+
+=======================================================
+  Packet FIFO IP Core - Self-Checking Testbench
+  Base Address: 0x0007_0000 (Allocated Space: 4 KB)
+=======================================================
+
+--- Test 1: Verifying Reset State and Default Registers ---
+  [PASS] Initial Status RD_EMPTY == 1: 0x00000001
+  [PASS] Initial Status WR_FULL == 0: 0x00000000
+  [PASS] Default Control ENABLE == 1: 0x00000001
+  [PASS] Default Control STREAM_EN == 1: 0x00000001
+
+--- Test 2: AXI4-Lite Register Configuration ---
+  [PASS] Threshold Register Readback: 0x000c0004
+
+--- Test 3: CPU Direct Data Injection via AXI4-Lite ---
+  [PASS] FIFO Not Empty after CPU Writes: 0x00000000
+  [PASS] Stream Word 0 Data Match: 0xcafe0001
+  [PASS] Stream Word 0 tlast == 0: 0x00000000
+  [FAIL] Stream Word 1 Data Match: Got 0xcafe0001, Expected 0xcafe0002
+  [PASS] Stream Word 1 tlast == 0: 0x00000000
+  [FAIL] Stream Word 2 Data Match: Got 0xcafe0001, Expected 0xcafe0003
+  [FAIL] Stream Word 2 tlast == 1 (Packet End): Got 0x00000000, Expected 0x00000001
+  [FAIL] Completed Packet Counter == 1: Got 0x00000000, Expected 0x00000001
+
+--- Test 4: Dual-Clock Asynchronous Streaming (wr_clk -> aclk) ---
+  [FAIL] Stream RX -> TX Data Match: Got 0xcafe0003, Expected 0x10000000
+  [FAIL] Stream RX -> TX tlast Match: Got 0x00000001, Expected 0x00000000
+  [FAIL] Stream RX -> TX Data Match: Got 0xcafe0003, Expected 0x10000001
+  [FAIL] Stream RX -> TX tlast Match: Got 0x00000001, Expected 0x00000000
+  [FAIL] Stream RX -> TX Data Match: Got 0xcafe0003, Expected 0x10000002
+  [FAIL] Stream RX -> TX tlast Match: Got 0x00000001, Expected 0x00000000
+  [FAIL] Stream RX -> TX Data Match: Got 0xcafe0003, Expected 0x10000003
+  [PASS] Stream RX -> TX tlast Match: 0x00000001
+  [PASS] Completed Packet Counter == 2: 0x00000002
+
+--- Test 5: Downstream Backpressure Handling ---
+  [PASS] m_axis_tvalid holds high during stall: 0x00000001
+  [FAIL] m_axis_tdata holds stable under stall: Got 0x10000002, Expected 0xbeef0001
+  [FAIL] Word 1 correctly delivered after stall release: Got 0x10000002, Expected 0xbeef0001
+  [FAIL] Word 2 correctly delivered after stall: Got 0x10000002, Expected 0xbeef0002
+  [FAIL] Final word tlast intact after stall: Got 0x00000000, Expected 0x00000001
+
+--- Test 6: Overflow, Underflow & Diagnostic Reporting ---
+  [PASS] FIFO reports Full condition: 0x00000001
+  [PASS] wr_overflow_sticky detected: 0x00000001
+  [PASS] fifo_irq_o asserted to PIC on overflow: 0x00000001
+  [PASS] wr_overflow_sticky cleared by W1C: 0x00000000
+  [PASS] fifo_irq_o deasserted after clear: 0x00000000
+  [FAIL] FIFO fully drained to empty: Got 0x00000000, Expected 0x00000001
+
+=======================================================
+  Packet FIFO Testbench Completed
+  Total Checks Passed : 17
+  Total Failures      : 16
+=======================================================
+
+>>> SOME TESTS FAILED! <<<
+
+$finish called from file "tb_packet_fifo.v", line 442.
+$finish at simulation time              2630000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 2630000 ps

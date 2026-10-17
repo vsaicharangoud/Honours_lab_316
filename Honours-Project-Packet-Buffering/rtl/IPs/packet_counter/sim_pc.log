@@ -1,0 +1,57 @@
+Command: /home/student/Documents/316/soc_project_packet_buffering/rtl/IPs/packet_counter/./simv_pc -l sim_pc.log
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03_Full64; Runtime version U-2023.03_Full64;  Oct 17 16:09 2026
+
+============================================================
+  Packet Counter + AXI4-Lite Wrapper — Directed Testbench
+============================================================
+
+--- T1: Reset state ---
+  [PASS] isabled): 0x00000000
+  [PASS] er reset: 0x00000000
+  [PASS] OUNT = 0: 0x00000000
+  [PASS] OUNT = 0: 0x00000000
+  [PASS] OUNT = 0: 0x00000000
+  [PASS] OUNT = 0: 0x00000000
+
+--- T2: Enable counter via CONTROL bit 0 ---
+  [PASS] readback: 0x00000001
+  [PASS] led) = 1: 0x00000001
+
+--- T3: Single event increments ---
+  [PASS] OUNT = 1: 0x00000001
+  [PASS] OUNT = 1: 0x00000001
+  [PASS] OUNT = 1: 0x00000001
+  [PASS] OUNT = 1: 0x00000001
+  [PASS] ero) = 1: 0x00000001
+
+--- T4: Multiple RX pulses (3 more) ---
+  [PASS] r 3 more: 0x00000004
+
+--- T5: Clear all counters via CONTROL bit 1 ---
+  [PASS] ared = 0: 0x00000000
+  [PASS] ared = 0: 0x00000000
+  [PASS] ared = 0: 0x00000000
+  [PASS] ared = 0: 0x00000000
+
+--- T6: Events while disabled (enable=0) ---
+  [PASS] disabled: 0x00000000
+  [PASS] disabled: 0x00000000
+
+--- T7: Invalid address SLVERR ---
+  [PASS] > SLVERR: 0x00000002
+  [PASS] RR write: 0x00000000
+
+============================================================
+  Total PASS: 22   Total FAIL: 0
+============================================================
+
+>>> ALL PACKET COUNTER TESTS PASSED <<<
+
+$finish called from file "tb_packet_counter.v", line 291.
+$finish at simulation time              1425000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 1425000 ps
+CPU Time:      0.110 seconds;       Data structure size:   0.0Mb
+Sat Oct 17 16:09:14 2026
