@@ -1,0 +1,184 @@
+================================================================================
+RISC-V VeeR EL2 HARDWARE PACKET BUFFERING & DATA INTEGRITY SoC
+PROJECT STATUS & PROGRESS HANDOFF REPORT
+================================================================================
+Date: 2026-10-31
+Project Root: /home/student/Documents/HONOURS_316/316/soc_project_packet_buffering
+VeeR EL2 Root: /home/student/Documents/HONOURS_316/316/soc_project_packet_buffering/rtl/RISC-V-VeeR-EL2
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+The Hardware Packet Buffering and Data Integrity Verification SoC integrates an
+open-source, dual-issue 32-bit RISC-V VeeR EL2 processor core (RV32IMC) with an
+autonomous high-throughput packet processing pipeline and microcontroller
+peripherals via a 3x8 AXI4 crossbar interconnect.
+
+All individual IPs have been verified, custom protocol adapters implemented, the
+processor subsystem integrated, the top module (soc_top.v) created and fully
+compiled with Synopsys Chronologic VCS (0 errors), and the Master Verification
+Test Plan (docs/soc_test_plan.md) with 36 test cases (TP-001 to TP-036) completed.
+
+--------------------------------------------------------------------------------
+2. ENVIRONMENT & VCS TOOLCHAIN SETUP
+--------------------------------------------------------------------------------
+VCS Tool Path: /home/student/snps_tools_target/vcs/U-2023.03
+License Server: 27021@14.139.1.126
+
+Shell environment variables:
+  export VCS_HOME="/home/student/snps_tools_target/vcs/U-2023.03"
+  export PATH="$VCS_HOME/bin:$PATH"
+  export SNPSLMD_LICENSE_FILE="27021@14.139.1.126"
+  export LM_LICENSE_FILE="27021@14.139.1.126"
+  export RV_ROOT="/home/student/Documents/HONOURS_316/316/soc_project_packet_buffering/rtl/RISC-V-VeeR-EL2"
+
+--------------------------------------------------------------------------------
+3. AUTHORITATIVE MEMORY MAP & PERIPHERAL SLOTS
+--------------------------------------------------------------------------------
+Slot | Peripheral Description      | Address Range           | Size  | Protocol
+-----+-----------------------------+-------------------------+-------+-------------------------
+M00  | Instruction RAM (Firmware)  | 0x0000_0000-0x0000_FFFF | 64 KB | AXI4 Full 32-bit
+M01  | Data RAM (Stack/Heap/BSS)   | 0x0001_0000-0x0001_FFFF | 64 KB | AXI4 Full 32-bit
+M02  | UART 16550 Controller       | 0x0002_0000-0x0002_0FFF |  4 KB | AXI4-Lite (via adapter)
+M03  | 32-bit Timer / PWM          | 0x0002_1000-0x0002_1FFF |  4 KB | AXI4 Full 32-bit
+M04  | 32-bit GPIO Controller      | 0x0002_2000-0x0002_2FFF |  4 KB | AXI4 Full 32-bit
+M05  | Packet FIFO Registers       | 0x0002_3000-0x0002_3FFF |  4 KB | AXI4-Lite (via generic)
+M06  | CRC-32 Checker Engine       | 0x0002_4000-0x0002_4FFF |  4 KB | AXI4-Lite (via generic)
+M07  | Packet Statistics Counter   | 0x0002_5000-0x0002_5FFF |  4 KB | AXI4 Full 32-bit
+
+--------------------------------------------------------------------------------
+4. INTERRUPT MAPPING (VeeR EL2 PIC)
+--------------------------------------------------------------------------------
+The VeeR EL2 Programmable Interrupt Controller (pt.PIC_TOTAL_INT = 31) routes:
+  IRQ 1: Timer Match Event (timer_top)
+  IRQ 2: GPIO Input Transition Event (gpio_top)
+  IRQ 3: Packet FIFO Watermark / Full Event (packet_fifo_top)
+  IRQ 4: CRC-32 Check Complete / Error Event (crc_top)
+  IRQ 5: UART Rx Ready / Tx Empty Event (axi_uart_top)
+  IRQ 6: Packet Counter Overflow Event (packet_counter_axi)
+  IRQ 7..31: Reserved / Tied to 1'b0
+
+--------------------------------------------------------------------------------
+5. KEY FILES CREATED & MODIFIED
+--------------------------------------------------------------------------------
+1. rtl/soc_top.v
+   Complete SoC top-level module integrating CPU subsystem, 3x8 crossbar, 8
+   subordinate peripherals, streaming packet datapath, and event pulse routing.
+
+2. rtl/cpu/veer_cpu_subsystem.sv
+   Processor subsystem wrapping veer_wrapper, internal SRAM models (DCCM, ICCM,
+   ICache data ram_512x71, ICache tag ram_64x26), IFU/LSU adapters, and PIC
+   interrupt aggregation.
+
+3. rtl/wrappers/veer_ifu_axi64_to_axi32_wrapper.v
+   Converts VeeR EL2 IFU 64-bit single-beat burst fetches (ARLEN=0, ARSIZE=3'b011)
+   into two sequential 32-bit read bursts on 32-bit interconnect port S00.
+
+4. rtl/wrappers/veer_lsu_axi64_to_axi32_wrapper.v
+   Converts VeeR EL2 LSU 64-bit data transactions to 32-bit transactions for S01.
+
+5. rtl/adapters/axi4_to_axi4lite_generic_adapter.v
+   Bridges AXI4 subordinates M05 (FIFO) and M06 (CRC) to AXI4-Lite with
+   independent AW/W capture and RLAST generation.
+
+6. rtl/adapters/axi4_to_axi4lite_uart_adapter.v
+   Bridges AXI4 subordinate M02 to the 16550 UART register interface. Fixed
+   axi_uart_bvalid_o signal declaration.
+
+7. rtl/IPs/fifo/packet_fifo_top.v
+   Added dedicated single-cycle pulse output `fifo_overflow_o` connected to
+   packet_counter_axi.
+
+8. docs/soc_test_plan.md
+   Complete 4-tier verification and test plan detailing 36 test cases
+   (TP-001 through TP-036).
+
+--------------------------------------------------------------------------------
+6. VCS COMPILATION STATUS
+--------------------------------------------------------------------------------
+Top module compilation command:
+  cd /home/student/Documents/HONOURS_316/316/soc_project_packet_buffering
+  export VCS_HOME="/home/student/snps_tools_target/vcs/U-2023.03"
+  export PATH="$VCS_HOME/bin:$PATH"
+  export SNPSLMD_LICENSE_FILE="27021@14.139.1.126"
+  export LM_LICENSE_FILE="27021@14.139.1.126"
+  export RV_ROOT="/home/student/Documents/HONOURS_316/316/soc_project_packet_buffering/rtl/RISC-V-VeeR-EL2"
+
+  vcs -full64 -sverilog +define+RV_OPENSOURCE +define+RV_BUILD_AXI4 \
+      +incdir+$RV_ROOT/design/lib \
+      +incdir+$RV_ROOT/design/include \
+      +incdir+$RV_ROOT/snapshots/default \
+      +incdir+$RV_ROOT/testbench \
+      +incdir+rtl/wrappers \
+      +incdir+rtl/IPs/timer \
+      +incdir+rtl/IPs/gpio \
+      +incdir+rtl/IPs/fifo \
+      +incdir+rtl/IPs/crc \
+      +incdir+rtl/IPs/UART_IP/src/include \
+      $RV_ROOT/snapshots/default/common_defines.vh \
+      $RV_ROOT/design/include/el2_def.sv \
+      $RV_ROOT/snapshots/default/el2_pdef.vh \
+      -f $RV_ROOT/testbench/flist \
+      rtl/wrappers/veer_lsu_axi64_to_axi32_wrapper.v \
+      rtl/wrappers/veer_ifu_axi64_to_axi32_wrapper.v \
+      rtl/cpu/veer_cpu_subsystem.sv \
+      rtl/adapters/arbiter.v \
+      rtl/cpu/priority_encoder.v \
+      rtl/interconnect/axi_interconnect.v \
+      rtl/interconnect/axi_interconnect_wrap_3x8.v \
+      rtl/adapters/axi4_to_axi4lite_uart_adapter.v \
+      rtl/adapters/axi4_to_axi4lite_generic_adapter.v \
+      rtl/IPs/axi_ram/axi_ram.v \
+      rtl/IPs/timer/timer_core.v \
+      rtl/IPs/timer/timer_axi4lite.v \
+      rtl/IPs/timer/timer_top.v \
+      rtl/IPs/gpio/gpio_core.v \
+      rtl/IPs/gpio/gpio_axi4lite.v \
+      rtl/IPs/gpio/gpio_top.v \
+      rtl/IPs/fifo/fifo_mem.v \
+      rtl/IPs/fifo/sync_ptr.v \
+      rtl/IPs/fifo/fifo_diag.v \
+      rtl/IPs/fifo/wr_domain.v \
+      rtl/IPs/fifo/rd_domain.v \
+      rtl/IPs/fifo/async_fifo_top.v \
+      rtl/IPs/fifo/fifo_axi4lite_slave.v \
+      rtl/IPs/fifo/packet_fifo_top.v \
+      rtl/IPs/crc/crc32_engine.v \
+      rtl/IPs/crc/crc_checker.v \
+      rtl/IPs/crc/crc_axi4lite_slave.v \
+      rtl/IPs/crc/crc_top.v \
+      rtl/IPs/UART_IP/src/rtl/axi_internal_fifo.v \
+      rtl/IPs/UART_IP/src/rtl/uart_controller.v \
+      rtl/IPs/UART_IP/src/rtl/uart_parity_bit_compute.v \
+      rtl/IPs/UART_IP/src/rtl/uart_receiver.v \
+      rtl/IPs/UART_IP/src/rtl/uart_transmitter.v \
+      rtl/IPs/UART_IP/src/rtl/axi_uart_top.v \
+      rtl/packet_counter_axi.v \
+      rtl/IPs/packet_source/packet_source.v \
+      rtl/soc_top.v \
+      -top soc_top \
+      -timescale=1ns/10ps -o simv_soc_top -l compile_soc_top.log
+
+Status: 56 modules parsed, elaborated, linked, and compiled cleanly into
+executable `simv_soc_top` with Synopsys VCS U-2023.03 (Exit Code: 0).
+
+--------------------------------------------------------------------------------
+7. IMMEDIATE NEXT STEPS TO RESUME
+--------------------------------------------------------------------------------
+1. Step 1: Implement Top-Level SystemVerilog Testbench (tb_soc_top.sv)
+   - Clock & Reset generation (50 MHz).
+   - Virtual UART Receiver to capture console output from uart_txd_o.
+   - Packet Stream Driver (ext_axis_*) & Scoreboard for FIFO/CRC/Counter.
+   - Firmware hex preloading into Instruction RAM via $readmemh.
+
+2. Step 2: Implement VeeR EL2 Bare-Metal C Application
+   - Linker script (linker.ld) for 64KB Instruction RAM (0x0000_0000) and
+     64KB Data RAM (0x0001_0000).
+   - Startup assembly (crt0.S) with trap vector setup.
+   - Driver headers for UART, Timer, GPIO, FIFO, CRC, and Packet Counter.
+   - main.c application running end-to-end packet processing and reporting
+     test completion over UART.
+
+3. Step 3: Run Full Simulation Regression
+   - Execute ./simv_soc_top and verify UART console logs "[PASS] ALL TESTS COMPLETED".
+================================================================================
