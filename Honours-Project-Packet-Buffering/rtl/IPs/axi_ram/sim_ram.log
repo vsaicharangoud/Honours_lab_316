@@ -1,0 +1,28 @@
+Command: /home/student/Documents/HONOURS_316/316/soc_project_packet_buffering/rtl/IPs/axi_ram/./simv_ram -l sim_ram.log
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03_Full64; Runtime version U-2023.03_Full64;  Oct 31 11:47 2026
+================================================================
+ Starting AXI4 RAM IP (64KB) Verification Testbench 
+================================================================
+[TEST 1] Single Word Write and Readback...
+  -> Word write/read PASS: 0x12345678
+[TEST 2] Testing Byte Strobe Masking (Modify byte 1 only)...
+  -> Byte strobe write PASS: 0x1234aa78
+[TEST 3] Multi-Beat INCR Burst Write and Read (4 words)...
+  -> Read beat 0: data=0xa0a00000, last=0
+  -> Read beat 1: data=0xa1a11111, last=0
+  -> Read beat 2: data=0xa2a22222, last=0
+  -> Read beat 3: data=0xa3a33333, last=1
+  -> Burst read 4 beats with RLAST PASS!
+================================================================
+ Total PASS: 6   Total FAIL: 0
+================================================================
+ *** ALL AXI RAM IP TESTS PASSED SUCCESSFULLY! ***
+
+$finish called from file "tb_axi_ram.v", line 359.
+$finish at simulation time               365000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 365000 ps
+CPU Time:      0.130 seconds;       Data structure size:   0.0Mb
+Sat Oct 31 11:47:31 2026
