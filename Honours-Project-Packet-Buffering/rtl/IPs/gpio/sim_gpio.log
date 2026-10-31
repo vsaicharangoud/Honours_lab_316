@@ -1,0 +1,37 @@
+Command: /home/student/Documents/HONOURS_316/316/soc_project_packet_buffering/rtl/IPs/gpio/./simv_gpio -l sim_gpio.log
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03_Full64; Runtime version U-2023.03_Full64;  Oct 31 11:43 2026
+================================================================
+ Starting GPIO IP AXI4 Verification Testbench 
+ Base Address: 0x0002_2000
+================================================================
+[TEST 1] Verifying initial reset values...
+  -> DATA_OUT reset value PASS: 0x00000000
+  -> DIR reset value PASS (all inputs): 0x00000000
+[TEST 2] Testing Direction (DIR) register configuration...
+  -> DIR register write/read PASS: 0x0000000f, gpio_oe: 0x0000000f
+[TEST 3] Testing DATA_OUT register and pin driving...
+  -> DATA_OUT write/read PASS: 0x0000000a, gpio_out: 0x0000000a
+[TEST 4] Testing Atomic SET and CLEAR operations...
+  -> Atomic SET PASS: 0x0000000b
+  -> Atomic CLEAR PASS: 0x00000009
+[TEST 5] Testing external GPIO inputs reading via DATA_IN...
+  -> DATA_IN synchronized read PASS: 0xcafebabe
+[TEST 6] Testing pin edge interrupt generation and W1C clear...
+  -> gpio_irq_o asserted PASS
+  -> INT_STATUS pending bit 8 PASS: 0x00000100
+  -> W1C interrupt clear and IRQ deassertion PASS: STATUS=0x00000000, IRQ=0
+[TEST 7] Testing unmapped register access error response...
+  -> Unmapped read returned SLVERR PASS (resp = 2'b10)
+================================================================
+ Total PASS: 11   Total FAIL: 0
+================================================================
+ *** ALL GPIO IP TESTS PASSED SUCCESSFULLY! ***
+
+$finish called from file "tb_gpio.v", line 402.
+$finish at simulation time               945000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 945000 ps
+CPU Time:      0.130 seconds;       Data structure size:   0.0Mb
+Sat Oct 31 11:43:38 2026

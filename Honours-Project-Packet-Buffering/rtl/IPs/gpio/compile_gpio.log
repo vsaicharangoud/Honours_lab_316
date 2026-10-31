@@ -1,0 +1,62 @@
+
+Warning-[LNX_OS_VERUN] Unsupported Linux version
+  Linux version 'Rocky Linux release 8.10 (Green Obsidian)' is not supported 
+  on 'x86_64' officially, assuming linux compatibility by default. Set 
+  VCS_ARCH_OVERRIDE to linux or suse32 to override.
+  Please refer to release notes for information on supported platforms.
+
+Command: vcs -full64 -sverilog +incdir+. gpio_core.v gpio_top.v gpio_axi4lite.v tb_gpio.v \
+-o simv_gpio -l compile_gpio.log
+                         Chronologic VCS (TM)
+         Version U-2023.03_Full64 -- Sat Oct 31 11:43:34 2026
+
+                    Copyright (c) 1991 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+
+Parsing design file 'gpio_core.v'
+Parsing included file 'gpio_defines.vh'.
+Back to file 'gpio_core.v'.
+Parsing design file 'gpio_top.v'
+Parsing included file 'gpio_defines.vh'.
+Back to file 'gpio_top.v'.
+Parsing design file 'gpio_axi4lite.v'
+Parsing included file 'gpio_defines.vh'.
+Back to file 'gpio_axi4lite.v'.
+Parsing design file 'tb_gpio.v'
+Parsing included file 'gpio_defines.vh'.
+Back to file 'tb_gpio.v'.
+Top Level Modules:
+       gpio_axi4lite
+       tb_gpio
+TimeScale is 1 ns / 1 ps
+Starting vcs inline pass...
+
+3 modules and 0 UDP read.
+recompiling module gpio_top
+recompiling module gpio_axi4lite
+recompiling module tb_gpio
+All of 3 modules done
+rm -f _cuarc*.so _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x ../simv_gpio ]; then chmod a-x ../simv_gpio; fi
+g++  -o ../simv_gpio      -rdynamic  -Wl,-rpath='$ORIGIN'/simv_gpio.daidir -Wl,-rpath=./simv_gpio.daidir \
+-Wl,-rpath=/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib -L/home/student/snps_tools_target/vcs/U-2023.03/linux64/lib \
+-Wl,-rpath-link=./  /usr/lib64/libnuma.so.1   objs/amcQw_d.o   _14342_archive_1.so \
+SIM_l.o      rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o \
+-lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_tls.o \
+-Wl,-whole-archive  -lvcsucli    -Wl,-no-whole-archive          /home/student/snps_tools_target/vcs/U-2023.03/linux64/lib/vcs_save_restore_new.o \
+-ldl  -lc -lm -lpthread -ldl 
+../simv_gpio up to date
+CPU time: .173 seconds to compile + .161 seconds to elab + .097 seconds to link
