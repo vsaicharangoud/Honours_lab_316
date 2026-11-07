@@ -1,0 +1,10 @@
+Region,Base Address,End Address,Size (bytes),Peripheral,Registers,Notes
+Instruction RAM,0x00000000,0x0000FFFF,65536,Instruction Memory,"N/A","Verified in axi_interconnect_wrap_3x8 and logs"
+Data RAM,0x00010000,0x0001FFFF,65536,Data Memory,"N/A","Verified"
+UART,0x00020000,0x00020FFF,4096,UART,"THR/RHR 0x00, IER 0x04, LCR 0x0C, LSR 0x14","Offset matches regs.h; THRE observed via probe"
+Timer,0x00021000,0x00021FFF,4096,Timer,"CTRL 0x00, STATUS 0x04, VALUE 0x08, COMPARE 0x0C, PRESCALER 0x10","CTRL reset value 0x2 confirmed"
+GPIO,0x00022000,0x00022FFF,4096,GPIO,"DATA_IN 0x00, DATA_OUT 0x04, DIR 0x08, SET 0x0C, CLR 0x10, INT_EN 0x14, INT_TYPE 0x18, INT_POL 0x1C, INT_STATUS 0x20","Offsets corrected in regs.h"
+FIFO,0x00023000,0x00023FFF,4096,Packet FIFO,"CTRL 0x00, STATUS 0x04, DATA 0x08","Verified address range"
+CRC,0x00024000,0x00024FFF,4096,CRC32,"CTRL 0x00, STATUS 0x04, DATA_IN 0x08, RESULT 0x0C","Verified"
+Packet Counter,0x00025000,0x00025FFF,4096,Packet Counter,"RECV 0x00, PROC 0x04, ERR 0x08","Verified",
+RESET_VEC,0x80000000,0x80000000,0,Core Reset Vector,"N/A","soc_top.v default 0x00000000; actual VeeR RV_RESET_VEC is 0x80000000 – discrepancy noted NEEDS REVIEW
