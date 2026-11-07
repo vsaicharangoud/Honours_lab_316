@@ -1,0 +1,3 @@
+gpio_i,input,32
+gpio_o,output,32
+gpio_oe,output,32

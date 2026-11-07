@@ -1,0 +1,4 @@
+ext_axis_tdata,input,32
+ext_axis_tvalid,input,1
+ext_axis_tlast,input,1
+ext_axis_tready,output,1
